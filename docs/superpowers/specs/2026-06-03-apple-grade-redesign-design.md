@@ -246,7 +246,7 @@ CSS `linear()` spring curves; transform/opacity only.
   a clean checklist; empty → "No open items".
 
 ### 7.6 Sheets
-- Header card: spreadsheet title + configured name + primary **glass** import button (busy/disabled
+- Header card: spreadsheet title + configured name + **solid** primary import button (glass is chrome-only per §3) (busy/disabled
   states), inline success-result and error banners.
 - Per-tab preview: sticky header row, monospaced cells, ellipsis overflow, horizontal scroll.
 
