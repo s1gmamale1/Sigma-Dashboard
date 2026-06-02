@@ -10,8 +10,7 @@ from backend.app.bootstrap import seed_db
 from backend.app.config import Settings
 from backend.app.db import Base, get_db
 from backend.app.main import app
-from backend.app.auth import require_admin
-from backend.app.auth import verify_password
+from backend.app.auth import require_admin, require_viper, verify_password
 
 
 def client_with_db() -> TestClient:
@@ -33,6 +32,7 @@ def client_with_db() -> TestClient:
 
     app.dependency_overrides[get_db] = override_db
     app.dependency_overrides[require_admin] = lambda: "admin"
+    app.dependency_overrides[require_viper] = lambda: "viper"
     return TestClient(app)
 
 

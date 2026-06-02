@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     viper_token: str = Field(default="change-me-viper-token", min_length=16)
     google_credentials_path: str | None = None
     google_sheet_id: str | None = None
+    google_sheet_name: str = "HR Department"
     frontend_dist_path: str = "frontend/dist"
 
     model_config = SettingsConfigDict(
@@ -34,4 +35,3 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
-

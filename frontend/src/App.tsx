@@ -1,7 +1,7 @@
 import type React from "react";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Activity, BarChart3, CalendarDays, FolderKanban, LogOut, Target } from "lucide-react";
+import { Activity, BarChart3, CalendarDays, FolderKanban, LogOut, Sheet, Target } from "lucide-react";
 import { api } from "./lib/api";
 import { addDays, isoDate, weekStart } from "./lib/dates";
 import { AttendanceView } from "./components/AttendanceView";
@@ -10,16 +10,18 @@ import { LoginPanel } from "./components/LoginPanel";
 import { OverviewView } from "./components/OverviewView";
 import { ProjectConditionView } from "./components/ProjectConditionView";
 import { ReportsView } from "./components/ReportsView";
+import { SheetsView } from "./components/SheetsView";
 import { EmptyState } from "./components/EmptyState";
 
-type Tab = "overview" | "attendance" | "reports" | "goals" | "projects";
+type Tab = "overview" | "attendance" | "reports" | "goals" | "projects" | "sheets";
 
 const tabs: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
   { id: "overview", label: "Overview", icon: <Activity size={18} /> },
   { id: "attendance", label: "Attendance", icon: <CalendarDays size={18} /> },
   { id: "reports", label: "Reports", icon: <BarChart3 size={18} /> },
   { id: "goals", label: "Goals", icon: <Target size={18} /> },
-  { id: "projects", label: "Projects", icon: <FolderKanban size={18} /> }
+  { id: "projects", label: "Projects", icon: <FolderKanban size={18} /> },
+  { id: "sheets", label: "Sheets", icon: <Sheet size={18} /> }
 ];
 
 export function App() {
@@ -135,6 +137,7 @@ function AuthenticatedDashboard({ token, logout }: { token: string; logout: () =
         {!hasError && active === "projects" && projects.data ? (
           <ProjectConditionView conditions={projects.data} />
         ) : null}
+        {active === "sheets" ? <SheetsView token={token} /> : null}
       </main>
     </div>
   );

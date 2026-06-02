@@ -4,6 +4,8 @@ import type {
   AttendanceHistoryRow,
   ChaseState,
   Envelope,
+  GoogleSheetImportResult,
+  GoogleSheetPreview,
   Goal,
   Overview,
   PerformanceRow,
@@ -64,6 +66,8 @@ export const api = {
     apiFetch<PerformanceRow[]>(`/api/v1/performance?from=${from}&to=${to}`, token),
   goals: (token: string) => apiFetch<Goal[]>("/api/v1/goals", token),
   projectConditions: (token: string) => apiFetch<ProjectCondition[]>("/api/v1/project-conditions", token),
-  syncAttendance: (token: string) => apiFetch<Record<string, unknown>>("/api/v1/sheets/sync/attendance", token, { method: "POST" })
+  syncAttendance: (token: string) => apiFetch<Record<string, unknown>>("/api/v1/sheets/sync/attendance", token, { method: "POST" }),
+  googleSheetPreview: (token: string) => apiFetch<GoogleSheetPreview>("/api/v1/google-sheet/preview", token),
+  googleSheetImport: (token: string) =>
+    apiFetch<GoogleSheetImportResult>("/api/v1/google-sheet/import", token, { method: "POST" })
 };
-

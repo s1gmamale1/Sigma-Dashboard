@@ -443,11 +443,43 @@ dd {
 }
 
 .primary-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   min-height: 46px;
   border-radius: 8px;
   color: white;
   background: var(--accent);
   font-weight: 700;
+}
+
+.primary-button.compact {
+  min-height: 44px;
+  padding: 0 14px;
+}
+
+.import-result {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 10%, transparent);
+}
+
+.sheet-preview {
+  min-width: 900px;
+}
+
+.sheet-preview td {
+  min-width: 120px;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .form-error {

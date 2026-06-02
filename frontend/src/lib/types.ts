@@ -103,3 +103,25 @@ export interface Overview {
   stale_project_topics: ProjectCondition[];
 }
 
+export interface GoogleSheetTabPreview {
+  title: string;
+  row_count: number;
+  column_count: number;
+  sample_range: string;
+  values: string[][];
+}
+
+export interface GoogleSheetPreview {
+  spreadsheet_id: string;
+  spreadsheet_title: string;
+  configured_name: string;
+  tabs: GoogleSheetTabPreview[];
+}
+
+export interface GoogleSheetImportResult {
+  spreadsheet_id: string;
+  spreadsheet_title: string;
+  imported: Record<string, number>;
+  skipped_tabs: string[];
+  notes: string[];
+}

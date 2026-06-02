@@ -180,3 +180,25 @@ class DashboardOverview(StrictModel):
     at_risk_goals: list[GoalOut]
     stale_project_topics: list[ProjectConditionOut]
 
+
+class GoogleSheetTabPreview(StrictModel):
+    title: str
+    row_count: int
+    column_count: int
+    sample_range: str
+    values: list[list[str]]
+
+
+class GoogleSheetPreview(StrictModel):
+    spreadsheet_id: str
+    spreadsheet_title: str
+    configured_name: str
+    tabs: list[GoogleSheetTabPreview]
+
+
+class GoogleSheetImportResult(StrictModel):
+    spreadsheet_id: str
+    spreadsheet_title: str
+    imported: dict[str, int]
+    skipped_tabs: list[str]
+    notes: list[str]

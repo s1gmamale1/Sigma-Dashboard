@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from .auth import create_access_token, require_admin, require_viper, verify_password
 from .config import Settings, get_settings
 from .db import get_db
+from .google_sheets import GoogleSheetError, get_sheet_preview, import_google_sheet_dashboard_data
 from .models import Assignment, AttendanceRecord, Goal, GoalLog, Person, ProjectCondition, ProjectTopic, Report
 from .schemas import (
     AttendanceCell,
@@ -17,6 +18,8 @@ from .schemas import (
     DashboardOverview,
     Envelope,
     GoalOut,
+    GoogleSheetImportResult,
+    GoogleSheetPreview,
     LoginRequest,
     LoginResponse,
     PerformanceRow,
@@ -404,3 +407,29 @@ def sheets_sync_attendance(db: Session = Depends(get_db), _: str = Depends(requi
         }
     )
 
+
+@router.get("/google-sheet/preview", response_model=Envelope)
+def google_sheet_preview(
+    sample_rows: int = Query(default=8, ge=1, le=25),
+    settings: Settings = Depends(get_settings),
+    _: str = Depends(require_admin),
+) -> Envelope:
+    try:
+        preview: GoogleSheetPreview = get_sheet_preview(settings, sample_rows=sample_rows)
+    except GoogleSheetError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return ok(preview)
+
+
+@router.post("/google-sheet/import", response_model=Envelope)
+def google_sheet_import(
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    _: str = Depends(require_admin),
+) -> Envelope:
+    try:
+        result: GoogleSheetImportResult = import_google_sheet_dashboard_data(settings, db)
+    except GoogleSheetError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    db.commit()
+    return ok(result)
