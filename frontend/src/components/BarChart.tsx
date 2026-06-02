@@ -11,13 +11,15 @@ export function BarChart({
   ariaLabel,
   format = (n: number) => String(n),
   max: maxProp,
-  height = 200
+  height = 200,
+  seriesLabels
 }: {
   data: Datum[];
   ariaLabel: string;
   format?: (n: number) => string;
   max?: number;
   height?: number;
+  seriesLabels?: [string, string];
 }) {
   const reduced = useReducedMotion();
   const grouped = data.some((d) => d.value2 != null);
@@ -66,9 +68,18 @@ export function BarChart({
       </div>
       <figcaption className="sr-only">
         <table>
+          {grouped && seriesLabels ? (
+            <thead>
+              <tr>
+                <th />
+                <th>{seriesLabels[0]}</th>
+                <th>{seriesLabels[1]}</th>
+              </tr>
+            </thead>
+          ) : null}
           <tbody>
-            {data.map((d) => (
-              <tr key={d.label}>
+            {data.map((d, i) => (
+              <tr key={`${d.label}-${i}`}>
                 <th>{d.label}</th>
                 <td>{format(d.value)}</td>
                 {d.value2 != null ? <td>{format(d.value2)}</td> : null}

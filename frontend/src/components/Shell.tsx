@@ -1,7 +1,7 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { LogOut, ChevronLeft, ChevronRight } from "lucide-react";
 import { SegmentedControl, type Segment } from "./SegmentedControl";
-import { addDays } from "../lib/dates";
+import { addDays, isoDate } from "../lib/dates";
 
 export function Shell({
   tabs,
@@ -22,15 +22,39 @@ export function Shell({
   onLogout: () => void;
   children: ReactNode;
 }) {
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const [collapsed, setCollapsed] = useState(false);
+
+  // iOS-style large-title collapse: when the big title scrolls under the bar,
+  // crossfade the app name to the active view title in the topbar.
+  useEffect(() => {
+    const el = titleRef.current;
+    if (!el || typeof IntersectionObserver !== "function") return;
+    const io = new IntersectionObserver(([entry]) => setCollapsed(!entry.isIntersecting), {
+      rootMargin: "-72px 0px 0px 0px",
+      threshold: 0
+    });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
   return (
     <div className="app-shell">
-      <header className="topbar glass">
+      <header className={`topbar glass${collapsed ? " is-collapsed" : ""}`}>
         <div className="topbar__brand">
-          <span className="eyebrow">Viper operations</span>
-          <strong>Sigma Dashboard</strong>
+          <span className="brand-default">
+            <span className="eyebrow">Viper operations</span>
+            <strong>Sigma Dashboard</strong>
+          </span>
+          <strong className="brand-collapsed" aria-hidden="true">
+            {title}
+          </strong>
         </div>
-        <SegmentedControl items={tabs} value={active} onChange={onActive} ariaLabel="Dashboard views" />
+        <SegmentedControl items={tabs} value={active} onChange={onActive} ariaLabel="Dashboard views" panelId="view-panel" />
         <div className="topbar__actions">
+          <button className="today-button" onClick={() => onDate(isoDate())}>
+            Today
+          </button>
           <div className="datestepper">
             <button className="icon-button" aria-label="Previous day" onClick={() => onDate(addDays(date, -1))}>
               <ChevronLeft size={18} />
@@ -47,8 +71,17 @@ export function Shell({
       </header>
 
       <main className="content">
-        <h1 className="title view-title">{title}</h1>
-        <div key={active} className="view-enter">
+        <h1 className="title view-title" ref={titleRef}>
+          {title}
+        </h1>
+        <div
+          id="view-panel"
+          role="tabpanel"
+          aria-labelledby={`tab-${active}`}
+          tabIndex={0}
+          key={active}
+          className="view-enter"
+        >
           {children}
         </div>
       </main>

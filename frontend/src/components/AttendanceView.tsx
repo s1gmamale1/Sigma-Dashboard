@@ -113,6 +113,7 @@ export function AttendanceView({ token, shiftDate, today, history, weekly }: Att
             value2: row.charged_count
           }))}
           ariaLabel="Weekly lates and charged counts per person"
+          seriesLabels={["Lates", "Charged"]}
         />
       </Card>
 

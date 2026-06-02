@@ -11,12 +11,14 @@ export function SegmentedControl({
   items,
   value,
   onChange,
-  ariaLabel
+  ariaLabel,
+  panelId
 }: {
   items: Segment[];
   value: string;
   onChange: (id: string) => void;
   ariaLabel: string;
+  panelId?: string;
 }) {
   const reduced = useReducedMotion();
   const listRef = useRef<HTMLDivElement>(null);
@@ -65,10 +67,12 @@ export function SegmentedControl({
       {items.map((s) => (
         <button
           key={s.id}
+          id={`tab-${s.id}`}
           data-id={s.id}
           role="tab"
           type="button"
           aria-selected={s.id === value}
+          aria-controls={panelId}
           tabIndex={s.id === value ? 0 : -1}
           className={`segmented__item${s.id === value ? " is-active" : ""}`}
           title={s.label}

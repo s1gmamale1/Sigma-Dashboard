@@ -31,12 +31,59 @@
   border-radius: var(--r-pill);
 }
 .topbar__brand {
+  position: relative;
+  display: grid;
+  align-content: center;
+  min-height: 40px;
+  line-height: 1.1;
+}
+.topbar__brand .brand-default {
   display: grid;
   line-height: 1.1;
+  transition: opacity var(--dur-snappy) var(--ease-out);
 }
 .topbar__brand strong {
   font-size: var(--type-headline);
   font-weight: 600;
+}
+/* Collapsed (scrolled) state: app name crossfades to the active view title */
+.topbar__brand .brand-collapsed {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  align-content: center;
+  font-size: var(--type-headline);
+  font-weight: 600;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-snappy) var(--ease-out);
+}
+.topbar.is-collapsed .brand-default {
+  opacity: 0;
+}
+.topbar.is-collapsed .brand-collapsed {
+  opacity: 1;
+}
+.today-button {
+  min-height: 40px;
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-pill);
+  background: var(--fill-2);
+  color: var(--accent);
+  font-size: var(--type-subhead);
+  font-weight: 600;
+  transition: transform var(--dur-snappy) var(--spring-snappy), background var(--dur-snappy) var(--ease-out);
+}
+.today-button:hover {
+  background: var(--fill);
+}
+.today-button:active {
+  transform: scale(0.96);
+}
+@media (max-width: 920px) {
+  .today-button {
+    display: none;
+  }
 }
 .topbar__actions {
   display: flex;
@@ -63,8 +110,8 @@
 .icon-button {
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: var(--r-control);
   color: var(--label);
   transition: background var(--dur-snappy) var(--ease-out), transform var(--dur-snappy) var(--spring-snappy);
@@ -323,7 +370,7 @@
   min-height: 44px;
   padding: 0 var(--sp-4);
   border-radius: var(--r-control);
-  color: #fff;
+  color: var(--on-accent);
   background: var(--accent);
   font-weight: 600;
   transition: transform var(--dur-snappy) var(--spring-snappy), filter var(--dur-snappy) var(--ease-out);

@@ -22,6 +22,7 @@
 
   /* Accent + status */
   --accent: #007aff;
+  --on-accent: #ffffff;
   --success: #248a3d;
   --warning: #b25000;
   --danger: #d70015;
@@ -119,9 +120,21 @@
     --separator: rgba(60, 60, 67, 0.55);
   }
 }
+/* Dark block has higher specificity than :root, so it needs its own override */
+@media (prefers-color-scheme: dark) and (prefers-contrast: more) {
+  :root:not([data-theme="light"]) {
+    --label-secondary: rgba(235, 235, 245, 0.8);
+    --separator: rgba(84, 84, 88, 0.85);
+  }
+}
 
 @media (prefers-reduced-transparency: reduce) {
   :root {
+    --glass-fill: var(--bg);
+  }
+}
+@media (prefers-color-scheme: dark) and (prefers-reduced-transparency: reduce) {
+  :root:not([data-theme="light"]) {
     --glass-fill: var(--bg);
   }
 }

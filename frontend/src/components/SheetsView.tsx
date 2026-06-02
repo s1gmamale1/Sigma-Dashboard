@@ -16,11 +16,19 @@ function TabPreview({ tab }: { tab: GoogleSheetTabPreview }) {
     return <EmptyState title="This tab has no visible values in the sampled range" />;
   }
   const columnCount = tab.values.reduce((max, row) => Math.max(max, row.length), 0);
+  const [headerRow, ...bodyRows] = tab.values;
   return (
     <div className="matrix-wrap">
       <table className="sheet-preview">
+        <thead>
+          <tr>
+            {Array.from({ length: columnCount }).map((_, cellIndex) => (
+              <th key={cellIndex}>{headerRow[cellIndex] ?? ""}</th>
+            ))}
+          </tr>
+        </thead>
         <tbody>
-          {tab.values.map((row, rowIndex) => (
+          {bodyRows.map((row, rowIndex) => (
             <tr key={`${tab.title}-${rowIndex}`}>
               {Array.from({ length: columnCount }).map((_, cellIndex) => (
                 <td key={cellIndex}>{row[cellIndex] ?? ""}</td>
