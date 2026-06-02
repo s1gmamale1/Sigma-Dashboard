@@ -112,6 +112,22 @@
   }
 }
 
+/* Layout utilities (shared across views) */
+.view-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-4);
+}
+.stack {
+  display: grid;
+  gap: var(--sp-2);
+}
+@media (max-width: 920px) {
+  .view-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Card + section header */
 .card {
   background: var(--surface);

@@ -1,1 +1,72 @@
-/* overview */
+/* Overview — bento home (§7.1) — .view-grid lives in components.css */
+
+.metric-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--sp-3);
+}
+
+/* Tonight roster */
+.roster-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) 0;
+  border-bottom: 1px solid var(--separator);
+}
+
+.roster-row:last-child {
+  border-bottom: 0;
+}
+
+.roster-row__main {
+  display: grid;
+  gap: 2px;
+}
+
+.roster-row__main span {
+  font-size: var(--type-footnote);
+}
+
+.roster-row__status {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+/* Goal risk */
+.risk-row {
+  display: grid;
+  gap: var(--sp-2);
+  padding: var(--sp-3) 0;
+  border-bottom: 1px solid var(--separator);
+}
+
+.risk-row:last-child {
+  border-bottom: 0;
+}
+
+.risk-row__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+
+/* Materialize stagger (metric-row is child 1 and animates with its StatCards) */
+.view-grid > .tile:nth-child(3) {
+  animation-delay: 30ms;
+}
+.view-grid > .tile:nth-child(4) {
+  animation-delay: 60ms;
+}
+.view-grid > .tile:nth-child(5) {
+  animation-delay: 90ms;
+}
+
+@media (max-width: 920px) {
+  .metric-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

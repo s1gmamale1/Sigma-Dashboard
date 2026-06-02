@@ -28,16 +28,16 @@ export function LoginPanel({ onLogin }: LoginPanelProps) {
 
   return (
     <main className="login-shell">
-      <form className="login-panel" onSubmit={submit}>
+      <form className="login-panel card materialize" onSubmit={submit}>
         <div className="login-mark" aria-hidden="true">
           <Lock size={24} />
         </div>
-        <h1>Sigma Dashboard</h1>
-        <label>
+        <h1 className="title">Sigma Dashboard</h1>
+        <label className="field">
           Username
           <input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" />
         </label>
-        <label>
+        <label className="field">
           Password
           <input
             type="password"

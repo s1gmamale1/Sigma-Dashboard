@@ -1,33 +1,47 @@
-import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { PerformanceRow, Report } from "../lib/types";
+import { BarChart } from "./BarChart";
+import { Card } from "./Card";
 import { EmptyState } from "./EmptyState";
+import { SectionHeader } from "./SectionHeader";
+import { StatusPill } from "./StatusPill";
+
+function RatingDots({ rating }: { rating: number | null }) {
+  const label = rating ? `${rating} of 4` : "no rating";
+  if (rating == null) {
+    return (
+      <span className="rating-dots" aria-label={label}>
+        —
+      </span>
+    );
+  }
+  const filled = Math.max(0, Math.min(4, rating));
+  return (
+    <span className="rating-dots" aria-label={label}>
+      {Array.from({ length: 4 }, (_, i) => (
+        <span key={i} className={i < filled ? "dot is-on" : "dot"} aria-hidden="true" />
+      ))}
+    </span>
+  );
+}
 
 export function ReportsView({ reports, performance }: { reports: Report[]; performance: PerformanceRow[] }) {
-  const chartData = performance.map((row) => ({
-    name: row.person.display_name,
-    rating: row.average_rating ?? 0,
-    completion: row.report_completion_rate
-  }));
-
   return (
     <section className="view-grid">
-      <section className="panel wide">
-        <header className="panel-header">
-          <h2>Daily reports</h2>
-        </header>
+      <Card wide>
+        <SectionHeader title="Daily reports" />
         {reports.length ? (
           <div className="report-grid">
             {reports.map((report) => (
               <article className="report-card" key={report.id}>
                 <div>
                   <strong>{report.person.display_name}</strong>
-                  <span>{report.source_topic ?? "No topic"}</span>
+                  <span className="muted">{report.source_topic ?? "No topic"}</span>
                 </div>
                 <p>{report.summary}</p>
-                {report.extras ? <small>{report.extras}</small> : null}
-                <footer>
-                  <b>{report.rating ? `${report.rating}/4` : "—"}</b>
-                  <span>{report.missing ? "Missing" : "Submitted"}</span>
+                {report.extras ? <small className="muted">{report.extras}</small> : null}
+                <footer className="report-card__foot">
+                  <RatingDots rating={report.rating} />
+                  {report.missing ? <StatusPill value="missing" /> : <span className="muted">Submitted</span>}
                 </footer>
               </article>
             ))}
@@ -35,41 +49,36 @@ export function ReportsView({ reports, performance }: { reports: Report[]; perfo
         ) : (
           <EmptyState title="No reports for this date" />
         )}
-      </section>
+      </Card>
 
-      <section className="panel">
-        <header className="panel-header">
-          <h2>Performance rank</h2>
-        </header>
+      <Card>
+        <SectionHeader title="Performance rank" />
         {performance.length ? (
           <div className="stack">
             {performance.map((row, index) => (
-              <article className="list-item" key={row.person.id}>
-                <strong>{index + 1}. {row.person.display_name}</strong>
-                <span>{row.average_rating ?? "—"} avg · {row.report_completion_rate}% complete</span>
+              <div className="rank-row" key={row.person.id}>
+                <span className="rank-badge">{index + 1}</span>
+                <strong>{row.person.display_name}</strong>
+                <span className="muted">
+                  {row.average_rating ?? "—"} avg · {row.report_completion_rate}% complete
+                </span>
                 <b>{row.missing_days} missing</b>
-              </article>
+              </div>
             ))}
           </div>
         ) : (
           <EmptyState title="No performance data" />
         )}
-      </section>
+      </Card>
 
-      <section className="panel">
-        <header className="panel-header">
-          <h2>Rating average</h2>
-        </header>
-        <ResponsiveContainer width="100%" height={240}>
-          <BarChart data={chartData}>
-            <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-            <YAxis domain={[0, 4]} tick={{ fontSize: 12 }} />
-            <Tooltip />
-            <Bar dataKey="rating" fill="var(--accent)" radius={[4, 4, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </section>
+      <Card>
+        <SectionHeader title="Rating average" />
+        <BarChart
+          data={performance.map((r) => ({ label: r.person.display_name, value: r.average_rating ?? 0 }))}
+          ariaLabel="Average rating per person, out of 4"
+          max={4}
+        />
+      </Card>
     </section>
   );
 }
-

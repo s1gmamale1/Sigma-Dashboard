@@ -1,1 +1,47 @@
-/* projects */
+/* projects — Project condition view */
+
+.topic-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--sp-3);
+}
+
+.topic-card {
+  display: grid;
+  gap: var(--sp-3);
+}
+
+.topic-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+
+.topic-chip {
+  font-size: var(--type-caption);
+  color: var(--label-secondary);
+  background: var(--fill-2);
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+}
+
+.topic-card p {
+  margin: 0;
+  font-size: var(--type-subhead);
+}
+
+.topic-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  color: var(--label-secondary);
+}
+
+.checklist {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+  font-size: var(--type-footnote);
+}

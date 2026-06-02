@@ -1,1 +1,38 @@
 /* sheets */
+.import-result {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+  padding: var(--sp-3);
+  border-radius: var(--r-control);
+  color: var(--success);
+  background: color-mix(in srgb, var(--success) 12%, transparent);
+}
+
+.form-error {
+  margin: 0;
+  color: var(--danger);
+}
+
+.sheet-preview {
+  min-width: 720px;
+  font-variant-numeric: tabular-nums;
+}
+
+.sheet-preview th,
+.sheet-preview td {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: var(--type-footnote);
+  min-width: 120px;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sheet-preview thead th {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+}

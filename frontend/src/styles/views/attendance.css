@@ -1,1 +1,90 @@
 /* attendance */
+
+/* Chase — compact segmented control (content surface, not glass) */
+.chase {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--r-control);
+  background: var(--fill-2);
+}
+
+.chase button {
+  min-height: 32px;
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-control);
+  color: var(--label-secondary);
+  font-size: var(--type-footnote);
+  font-weight: 600;
+}
+
+.chase button.is-active {
+  color: var(--label);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+}
+
+/* Today — roster rows */
+.att-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) 0;
+  border-bottom: 1px solid var(--separator);
+}
+
+.att-row:last-child {
+  border-bottom: none;
+}
+
+.att-row__main {
+  display: grid;
+  gap: 2px;
+}
+
+.att-row__main span {
+  font-size: var(--type-footnote);
+}
+
+/* History matrix — sticky person column */
+.matrix th:first-child,
+.matrix td:first-child {
+  position: sticky;
+  left: 0;
+  background: var(--surface);
+  z-index: 1;
+}
+
+.matrix td small {
+  display: block;
+  margin-top: 4px;
+}
+
+/* Weekly totals — stat rows */
+.total-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--sp-1) var(--sp-3);
+  padding: var(--sp-3) 0;
+  border-bottom: 1px solid var(--separator);
+}
+
+.total-row:last-child {
+  border-bottom: none;
+}
+
+.total-row span {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 920px) {
+  .att-row {
+    grid-template-columns: auto 1fr;
+  }
+
+  .att-row__status,
+  .chase {
+    grid-column: 1 / -1;
+  }
+}
