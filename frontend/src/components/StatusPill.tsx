@@ -1,0 +1,24 @@
+import type { ChaseState, Status } from "../lib/types";
+
+type PillValue = Status | "missing" | ChaseState | "active" | "overdue" | "done" | "paused";
+
+const labels: Record<PillValue, string> = {
+  in: "In",
+  late: "Late",
+  charged: "Charged",
+  no_show: "No show",
+  excused: "Excused",
+  missing: "Missing",
+  none: "None",
+  needs_chase: "Needs chase",
+  chased: "Chased",
+  resolved: "Resolved",
+  active: "Active",
+  overdue: "Overdue",
+  done: "Done",
+  paused: "Paused"
+};
+
+export function StatusPill({ value }: { value: PillValue }) {
+  return <span className={`pill pill-${value}`}>{labels[value]}</span>;
+}

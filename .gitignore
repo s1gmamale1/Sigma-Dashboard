@@ -1,0 +1,16 @@
+.env
+*.db
+*.sqlite
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+node_modules/
+frontend/dist/
+frontend/.vite/
+*.tsbuildinfo
+coverage/
+credentials/
+logs/*
+!logs/.gitkeep

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.sigma.dashboard</string>
+  <key>WorkingDirectory</key>
+  <string>/Users/aisigma/sigma-dashboard</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/aisigma/sigma-dashboard/.venv/bin/uvicorn</string>
+    <string>backend.app.main:app</string>
+    <string>--host</string>
+    <string>0.0.0.0</string>
+    <string>--port</string>
+    <string>8000</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>StandardOutPath</key>
+  <string>/Users/aisigma/sigma-dashboard/logs/dashboard.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/aisigma/sigma-dashboard/logs/dashboard.err.log</string>
+</dict>
+</plist>
+
