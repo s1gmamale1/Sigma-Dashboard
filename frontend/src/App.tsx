@@ -1,7 +1,6 @@
-import type React from "react";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Activity, BarChart3, CalendarDays, FolderKanban, LogOut, Sheet, Target } from "lucide-react";
+import { Activity, BarChart3, CalendarDays, FolderKanban, Sheet, Target } from "lucide-react";
 import { api } from "./lib/api";
 import { addDays, isoDate, weekStart } from "./lib/dates";
 import { AttendanceView } from "./components/AttendanceView";
@@ -12,10 +11,12 @@ import { ProjectConditionView } from "./components/ProjectConditionView";
 import { ReportsView } from "./components/ReportsView";
 import { SheetsView } from "./components/SheetsView";
 import { EmptyState } from "./components/EmptyState";
+import { Shell } from "./components/Shell";
+import type { Segment } from "./components/SegmentedControl";
 
 type Tab = "overview" | "attendance" | "reports" | "goals" | "projects" | "sheets";
 
-const tabs: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
+const tabs: Segment[] = [
   { id: "overview", label: "Overview", icon: <Activity size={18} /> },
   { id: "attendance", label: "Attendance", icon: <CalendarDays size={18} /> },
   { id: "reports", label: "Reports", icon: <BarChart3 size={18} /> },
@@ -82,63 +83,39 @@ function AuthenticatedDashboard({ token, logout }: { token: string; logout: () =
   });
 
   const hasError = [overview, today, history, weekly, reports, performance, goals, projects].find((query) => query.error);
+  const title = tabs.find((tab) => tab.id === active)?.label ?? "Sigma Dashboard";
 
   return (
-    <div className="app-shell">
-      <header className="topbar">
-        <div>
-          <span className="eyebrow">Viper operations</span>
-          <h1>Sigma Dashboard</h1>
-        </div>
-        <nav aria-label="Dashboard views">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              className={active === tab.id ? "active" : ""}
-              onClick={() => setActive(tab.id)}
-              title={tab.label}
-            >
-              {tab.icon}
-              <span>{tab.label}</span>
-            </button>
-          ))}
-        </nav>
-        <div className="topbar-actions">
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(event) => setSelectedDate(event.target.value)}
-            aria-label="Dashboard date"
-          />
-          <button className="icon-button" onClick={logout} title="Sign out" aria-label="Sign out">
-            <LogOut size={18} />
-          </button>
-        </div>
-      </header>
-
-      <main className="content">
-        {hasError ? (
-          <EmptyState title={hasError.error instanceof Error ? hasError.error.message : "Unable to load dashboard"} />
-        ) : null}
-        {!hasError && active === "overview" && overview.data ? <OverviewView overview={overview.data} /> : null}
-        {!hasError && active === "attendance" && today.data && history.data && weekly.data ? (
-          <AttendanceView
-            token={token}
-            shiftDate={selectedDate}
-            today={today.data}
-            history={history.data}
-            weekly={weekly.data}
-          />
-        ) : null}
-        {!hasError && active === "reports" && reports.data && performance.data ? (
-          <ReportsView reports={reports.data} performance={performance.data} />
-        ) : null}
-        {!hasError && active === "goals" && goals.data ? <GoalsView goals={goals.data} /> : null}
-        {!hasError && active === "projects" && projects.data ? (
-          <ProjectConditionView conditions={projects.data} />
-        ) : null}
-        {active === "sheets" ? <SheetsView token={token} /> : null}
-      </main>
-    </div>
+    <Shell
+      tabs={tabs}
+      active={active}
+      onActive={(id) => setActive(id as Tab)}
+      title={title}
+      date={selectedDate}
+      onDate={setSelectedDate}
+      onLogout={logout}
+    >
+      {hasError ? (
+        <EmptyState title={hasError.error instanceof Error ? hasError.error.message : "Unable to load dashboard"} />
+      ) : null}
+      {!hasError && active === "overview" && overview.data ? <OverviewView overview={overview.data} /> : null}
+      {!hasError && active === "attendance" && today.data && history.data && weekly.data ? (
+        <AttendanceView
+          token={token}
+          shiftDate={selectedDate}
+          today={today.data}
+          history={history.data}
+          weekly={weekly.data}
+        />
+      ) : null}
+      {!hasError && active === "reports" && reports.data && performance.data ? (
+        <ReportsView reports={reports.data} performance={performance.data} />
+      ) : null}
+      {!hasError && active === "goals" && goals.data ? <GoalsView goals={goals.data} /> : null}
+      {!hasError && active === "projects" && projects.data ? (
+        <ProjectConditionView conditions={projects.data} />
+      ) : null}
+      {active === "sheets" ? <SheetsView token={token} /> : null}
+    </Shell>
   );
 }
