@@ -16,7 +16,6 @@
     "lucide-react": "^0.468.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "recharts": "^3.8.1",
     "zod": "^3.25.67"
   },
   "devDependencies": {

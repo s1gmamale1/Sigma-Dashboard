@@ -1,11 +1,20 @@
 import { Inbox } from "lucide-react";
+import type { ReactNode } from "react";
 
-export function EmptyState({ title }: { title: string }) {
+export function EmptyState({
+  title,
+  icon,
+  action
+}: {
+  title: string;
+  icon?: ReactNode;
+  action?: ReactNode;
+}) {
   return (
     <div className="empty-state">
-      <Inbox aria-hidden="true" size={22} />
+      {icon ?? <Inbox aria-hidden="true" size={22} />}
       <p>{title}</p>
+      {action}
     </div>
   );
 }
-
