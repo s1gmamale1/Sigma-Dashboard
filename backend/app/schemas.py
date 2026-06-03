@@ -179,11 +179,51 @@ class GoalOut(StrictModel):
     latest_log: str | None
 
 
+class ProjectTask(StrictModel):
+    """A single checklist item for a project. `done` toggles completion."""
+
+    text: str = Field(min_length=1, max_length=300)
+    done: bool = False
+
+
+class ProjectLogOut(StrictModel):
+    id: int
+    body: str
+    created_at: datetime
+
+
 class ViperProjectConditionUpsert(StrictModel):
     topic_id: str = Field(min_length=1, max_length=80)
     summary: str = Field(min_length=1)
     last_activity_at: datetime | None = None
+    # The Viper agent writes plain task strings; they are stored as open (done=false).
     open_items: list[str] = Field(default_factory=list)
+
+
+class ProjectCreate(StrictModel):
+    """Admin: create a new project. `topic_id` is auto-generated when omitted."""
+
+    title: str = Field(min_length=1, max_length=180)
+    topic_id: str | None = Field(default=None, max_length=80)
+    summary: str | None = None
+    open_items: list[ProjectTask] = Field(default_factory=list)
+
+
+class ProjectUpdate(StrictModel):
+    """Admin: patch a project. Every field is optional; omitted fields are left unchanged."""
+
+    title: str | None = Field(default=None, min_length=1, max_length=180)
+    summary: str | None = None
+    open_items: list[ProjectTask] | None = None
+    active: bool | None = None
+
+
+class ProjectLogCreate(StrictModel):
+    body: str = Field(min_length=1, max_length=2000)
+
+
+class ProjectDeleted(StrictModel):
+    topic_id: str
 
 
 class ProjectConditionOut(StrictModel):
@@ -191,7 +231,9 @@ class ProjectConditionOut(StrictModel):
     title: str | None
     summary: str | None
     last_activity_at: datetime | None
-    open_items: list[str]
+    open_items: list[ProjectTask]
+    logs: list[ProjectLogOut] = Field(default_factory=list)
+    active: bool = True
     updated_at: datetime | None
 
 

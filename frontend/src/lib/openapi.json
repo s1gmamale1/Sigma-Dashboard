@@ -620,8 +620,27 @@
           "Projects"
         ],
         "summary": "Project conditions",
-        "description": "Current condition for each active project topic \u2014 rolling summary, last activity,\nand open items.",
+        "description": "Condition for each project topic \u2014 rolling summary, last activity, the open task\nchecklist, and the recent log timeline. Active projects only by default; pass\n`include_archived=true` to also return archived ones (so they can be restored).",
         "operationId": "get_project_conditions_api_v1_project_conditions_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "include_archived",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Include archived (active=false) projects.",
+              "default": false,
+              "title": "Include Archived"
+            },
+            "description": "Include archived (active=false) projects."
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -642,6 +661,78 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects": {
+      "post": {
+        "tags": [
+          "Projects"
+        ],
+        "summary": "Create a project",
+        "description": "Create a new project topic and its condition. `topic_id` is auto-generated when omitted.",
+        "operationId": "create_project_endpoint_api_v1_projects_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_ProjectConditionOut_"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid admin bearer token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A project with that topic_id already exists.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -649,6 +740,305 @@
             "HTTPBearer": []
           }
         ]
+      }
+    },
+    "/api/v1/projects/{topic_id}": {
+      "patch": {
+        "tags": [
+          "Projects"
+        ],
+        "summary": "Update a project",
+        "description": "Patch a project's title, summary, task checklist, or active (archive) flag. Omitted\nfields are left unchanged; archive sets `active=false` (hides it from the board).",
+        "operationId": "update_project_endpoint_api_v1_projects__topic_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "topic_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Topic Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_ProjectConditionOut_"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid admin bearer token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Projects"
+        ],
+        "summary": "Delete a project",
+        "description": "Permanently remove a project, its condition, and its logs. Referencing goals are detached.",
+        "operationId": "delete_project_endpoint_api_v1_projects__topic_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "topic_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Topic Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_ProjectDeleted_"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid admin bearer token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{topic_id}/logs": {
+      "post": {
+        "tags": [
+          "Projects"
+        ],
+        "summary": "Add a project log entry",
+        "description": "Append a timestamped log entry and bump the project's last activity. Returns the full project.",
+        "operationId": "add_project_log_endpoint_api_v1_projects__topic_id__logs_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "topic_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Topic Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjectLogCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_ProjectConditionOut_"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid admin bearer token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{topic_id}/logs/{log_id}": {
+      "delete": {
+        "tags": [
+          "Projects"
+        ],
+        "summary": "Delete a project log entry",
+        "description": "Remove a single log entry from a project. Returns the full project.",
+        "operationId": "delete_project_log_endpoint_api_v1_projects__topic_id__logs__log_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "topic_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Topic Id"
+            }
+          },
+          {
+            "name": "log_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Log Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_ProjectConditionOut_"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid admin bearer token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/viper/attendance": {
@@ -1615,6 +2005,38 @@
         "type": "object",
         "title": "Envelope[ProjectConditionOut]"
       },
+      "Envelope_ProjectDeleted_": {
+        "properties": {
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProjectDeleted"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Meta"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Envelope[ProjectDeleted]"
+      },
       "Envelope_SheetSyncResult_": {
         "properties": {
           "data": {
@@ -2351,10 +2773,22 @@
           },
           "open_items": {
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/ProjectTask"
             },
             "type": "array",
             "title": "Open Items"
+          },
+          "logs": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectLogOut"
+            },
+            "type": "array",
+            "title": "Logs"
+          },
+          "active": {
+            "type": "boolean",
+            "title": "Active",
+            "default": true
           },
           "updated_at": {
             "anyOf": [
@@ -2380,6 +2814,187 @@
           "updated_at"
         ],
         "title": "ProjectConditionOut"
+      },
+      "ProjectCreate": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 180,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "topic_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 80
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topic Id"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "open_items": {
+            "items": {
+              "$ref": "#/components/schemas/ProjectTask"
+            },
+            "type": "array",
+            "title": "Open Items"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "title"
+        ],
+        "title": "ProjectCreate",
+        "description": "Admin: create a new project. `topic_id` is auto-generated when omitted."
+      },
+      "ProjectDeleted": {
+        "properties": {
+          "topic_id": {
+            "type": "string",
+            "title": "Topic Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "topic_id"
+        ],
+        "title": "ProjectDeleted"
+      },
+      "ProjectLogCreate": {
+        "properties": {
+          "body": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Body"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "body"
+        ],
+        "title": "ProjectLogCreate"
+      },
+      "ProjectLogOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "body": {
+            "type": "string",
+            "title": "Body"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "body",
+          "created_at"
+        ],
+        "title": "ProjectLogOut"
+      },
+      "ProjectTask": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Text"
+          },
+          "done": {
+            "type": "boolean",
+            "title": "Done",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "ProjectTask",
+        "description": "A single checklist item for a project. `done` toggles completion."
+      },
+      "ProjectUpdate": {
+        "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 180,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "open_items": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ProjectTask"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Open Items"
+          },
+          "active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ProjectUpdate",
+        "description": "Admin: patch a project. Every field is optional; omitted fields are left unchanged."
       },
       "ReportOut": {
         "properties": {
@@ -2953,7 +3568,7 @@
     },
     {
       "name": "Projects",
-      "description": "Per-topic project condition."
+      "description": "Per-topic project condition \u2014 admin create/edit/archive/delete, task checklist, and log timeline."
     },
     {
       "name": "Viper ingest",

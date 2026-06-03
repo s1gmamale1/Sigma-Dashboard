@@ -77,7 +77,7 @@ OPENAPI_TAGS = [
     {"name": "Attendance", "description": "Tonight's shift, history grid, weekly lateness summary, and chase state."},
     {"name": "Reports", "description": "Daily reports and the performance roll-up."},
     {"name": "Goals", "description": "Active goals and at-risk goals."},
-    {"name": "Projects", "description": "Per-topic project condition."},
+    {"name": "Projects", "description": "Per-topic project condition — admin create/edit/archive/delete, task checklist, and log timeline."},
     {"name": "Viper ingest", "description": "Write API used by the Viper agent (authenticated with `X-Viper-Token`)."},
     {"name": "Google Sheets", "description": "Preview, import, and sync the HR attendance spreadsheet."},
 ]

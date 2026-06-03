@@ -1,4 +1,3 @@
-import json
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -10,7 +9,17 @@ from .auth import create_access_token, require_admin, require_viper, verify_pass
 from .config import Settings, get_settings
 from .db import get_db
 from .google_sheets import GoogleSheetError, get_sheet_preview, import_google_sheet_dashboard_data
-from .models import Assignment, AttendanceRecord, Goal, GoalLog, Person, ProjectCondition, ProjectTopic, Report
+from .models import (
+    Assignment,
+    AttendanceRecord,
+    Goal,
+    GoalLog,
+    Person,
+    ProjectCondition,
+    ProjectLog,
+    ProjectTopic,
+    Report,
+)
 from .schemas import (
     AttendanceCell,
     AttendanceHistoryRow,
@@ -27,6 +36,11 @@ from .schemas import (
     PerformanceRow,
     PersonOut,
     ProjectConditionOut,
+    ProjectCreate,
+    ProjectDeleted,
+    ProjectLogCreate,
+    ProjectLogOut,
+    ProjectUpdate,
     ReportOut,
     SheetSyncResult,
     ViperAttendanceUpsert,
@@ -36,9 +50,16 @@ from .schemas import (
     WeeklySummaryRow,
 )
 from .services import (
+    add_project_log,
     apply_goal_status,
+    create_project,
     date_span,
+    delete_project,
+    delete_project_log,
+    get_project_logs,
+    parse_project_tasks,
     sync_attendance_to_sheet,
+    update_project,
     upsert_attendance,
     upsert_goal,
     upsert_project_condition,
@@ -103,15 +124,27 @@ def goal_out(db: Session, goal: Goal) -> GoalOut:
     )
 
 
-def project_condition_out(topic: ProjectTopic, condition: ProjectCondition | None) -> ProjectConditionOut:
+def project_condition_out(
+    topic: ProjectTopic,
+    condition: ProjectCondition | None,
+    logs: list[ProjectLog] | None = None,
+) -> ProjectConditionOut:
     return ProjectConditionOut(
         topic_id=topic.topic_id,
         title=topic.title,
-        summary=condition.summary if condition else None,
+        summary=(condition.summary or None) if condition else None,
         last_activity_at=condition.last_activity_at if condition else None,
-        open_items=json.loads(condition.open_items_json) if condition else [],
+        open_items=parse_project_tasks(condition.open_items_json) if condition else [],
+        logs=[ProjectLogOut(id=log.id, body=log.body, created_at=log.created_at) for log in (logs or [])],
+        active=topic.active,
         updated_at=condition.updated_at if condition else None,
     )
+
+
+def build_project_out(db: Session, topic: ProjectTopic) -> ProjectConditionOut:
+    """Assemble the full project payload (condition + recent logs) for a single topic."""
+    condition = db.scalar(select(ProjectCondition).where(ProjectCondition.topic_id == topic.topic_id))
+    return project_condition_out(topic, condition, get_project_logs(db, topic.topic_id))
 
 
 @router.post(
@@ -431,15 +464,123 @@ def get_goals(
     summary="Project conditions",
     responses={**UNAUTHORIZED},
 )
-def get_project_conditions(db: Session = Depends(get_db), _: str = Depends(require_admin)) -> Envelope:
-    """Current condition for each active project topic — rolling summary, last activity,
-    and open items."""
-    topics = list(db.scalars(select(ProjectTopic).where(ProjectTopic.active.is_(True)).order_by(ProjectTopic.topic_id)))
-    result = []
-    for topic in topics:
-        condition = db.scalar(select(ProjectCondition).where(ProjectCondition.topic_id == topic.topic_id))
-        result.append(project_condition_out(topic, condition))
-    return ok(result)
+def get_project_conditions(
+    db: Session = Depends(get_db),
+    _: str = Depends(require_admin),
+    include_archived: bool = Query(default=False, description="Include archived (active=false) projects."),
+) -> Envelope:
+    """Condition for each project topic — rolling summary, last activity, the open task
+    checklist, and the recent log timeline. Active projects only by default; pass
+    `include_archived=true` to also return archived ones (so they can be restored)."""
+    stmt = select(ProjectTopic).order_by(ProjectTopic.topic_id)
+    if not include_archived:
+        stmt = stmt.where(ProjectTopic.active.is_(True))
+    return ok([build_project_out(db, topic) for topic in db.scalars(stmt)])
+
+
+@router.post(
+    "/projects",
+    response_model=Envelope[ProjectConditionOut],
+    tags=["Projects"],
+    summary="Create a project",
+    responses={**UNAUTHORIZED, 409: _err("A project with that topic_id already exists.")},
+)
+def create_project_endpoint(
+    payload: ProjectCreate,
+    db: Session = Depends(get_db),
+    _: str = Depends(require_admin),
+) -> Envelope:
+    """Create a new project topic and its condition. `topic_id` is auto-generated when omitted."""
+    try:
+        topic = create_project(db, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+    db.commit()
+    return ok(build_project_out(db, topic))
+
+
+@router.patch(
+    "/projects/{topic_id}",
+    response_model=Envelope[ProjectConditionOut],
+    tags=["Projects"],
+    summary="Update a project",
+    responses={**UNAUTHORIZED, **NOT_FOUND},
+)
+def update_project_endpoint(
+    topic_id: str,
+    payload: ProjectUpdate,
+    db: Session = Depends(get_db),
+    _: str = Depends(require_admin),
+) -> Envelope:
+    """Patch a project's title, summary, task checklist, or active (archive) flag. Omitted
+    fields are left unchanged; archive sets `active=false` (hides it from the board)."""
+    topic = update_project(db, topic_id, payload)
+    if topic is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="project not found")
+    db.commit()
+    return ok(build_project_out(db, topic))
+
+
+@router.delete(
+    "/projects/{topic_id}",
+    response_model=Envelope[ProjectDeleted],
+    tags=["Projects"],
+    summary="Delete a project",
+    responses={**UNAUTHORIZED, **NOT_FOUND},
+)
+def delete_project_endpoint(
+    topic_id: str,
+    db: Session = Depends(get_db),
+    _: str = Depends(require_admin),
+) -> Envelope:
+    """Permanently remove a project, its condition, and its logs. Referencing goals are detached."""
+    if not delete_project(db, topic_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="project not found")
+    db.commit()
+    return ok(ProjectDeleted(topic_id=topic_id))
+
+
+@router.post(
+    "/projects/{topic_id}/logs",
+    response_model=Envelope[ProjectConditionOut],
+    tags=["Projects"],
+    summary="Add a project log entry",
+    responses={**UNAUTHORIZED, **NOT_FOUND},
+)
+def add_project_log_endpoint(
+    topic_id: str,
+    payload: ProjectLogCreate,
+    db: Session = Depends(get_db),
+    _: str = Depends(require_admin),
+) -> Envelope:
+    """Append a timestamped log entry and bump the project's last activity. Returns the full project."""
+    log = add_project_log(db, topic_id, payload.body)
+    if log is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="project not found")
+    db.commit()
+    topic = db.get(ProjectTopic, topic_id)
+    return ok(build_project_out(db, topic))  # type: ignore[arg-type]
+
+
+@router.delete(
+    "/projects/{topic_id}/logs/{log_id}",
+    response_model=Envelope[ProjectConditionOut],
+    tags=["Projects"],
+    summary="Delete a project log entry",
+    responses={**UNAUTHORIZED, **NOT_FOUND},
+)
+def delete_project_log_endpoint(
+    topic_id: str,
+    log_id: int,
+    db: Session = Depends(get_db),
+    _: str = Depends(require_admin),
+) -> Envelope:
+    """Remove a single log entry from a project. Returns the full project."""
+    if not delete_project_log(db, topic_id, log_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="log not found")
+    db.commit()
+    topic = db.get(ProjectTopic, topic_id)
+    return ok(build_project_out(db, topic))  # type: ignore[arg-type]
 
 
 @router.post(

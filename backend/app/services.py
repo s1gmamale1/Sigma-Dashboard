@@ -1,4 +1,5 @@
 import json
+import uuid
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
@@ -17,11 +18,19 @@ from .models import (
     GoalLog,
     Person,
     ProjectCondition,
+    ProjectLog,
     ProjectTopic,
     Report,
     SheetSyncRun,
 )
-from .schemas import ViperAttendanceUpsert, ViperGoalUpsert, ViperProjectConditionUpsert, ViperReportUpsert
+from .schemas import (
+    ProjectCreate,
+    ProjectUpdate,
+    ViperAttendanceUpsert,
+    ViperGoalUpsert,
+    ViperProjectConditionUpsert,
+    ViperReportUpsert,
+)
 
 
 def get_or_create_person(db: Session, slug: str, display_name: str) -> Person:
@@ -146,6 +155,51 @@ def upsert_goal(db: Session, payload: ViperGoalUpsert) -> Goal:
     return goal
 
 
+def parse_project_tasks(raw: str | None) -> list[dict]:
+    """Read the stored open_items JSON into [{text, done}]. Legacy rows store plain
+    strings (["a", "b"]); those are coerced to open tasks ({text, done: false})."""
+    if not raw:
+        return []
+    try:
+        items = json.loads(raw)
+    except (ValueError, TypeError):
+        return []
+    if not isinstance(items, list):
+        return []
+    tasks: list[dict] = []
+    for item in items:
+        if isinstance(item, str):
+            text = item.strip()
+            if text:
+                tasks.append({"text": text, "done": False})
+        elif isinstance(item, dict):
+            text = str(item.get("text", "")).strip()
+            if text:
+                tasks.append({"text": text, "done": bool(item.get("done", False))})
+    return tasks
+
+
+def _dump_tasks(tasks) -> str:
+    """Serialize a list of ProjectTask (or dicts) to the stored JSON shape."""
+    out = []
+    for task in tasks:
+        text = (task.text if hasattr(task, "text") else str(task.get("text", ""))).strip()
+        if not text:
+            continue
+        done = bool(task.done if hasattr(task, "done") else task.get("done", False))
+        out.append({"text": text, "done": done})
+    return json.dumps(out)
+
+
+def _generate_topic_id(db: Session) -> str:
+    """A short, unique topic id for admin-created projects."""
+    for _ in range(10):
+        candidate = uuid.uuid4().hex[:10]
+        if db.get(ProjectTopic, candidate) is None:
+            return candidate
+    return uuid.uuid4().hex
+
+
 def upsert_project_condition(db: Session, payload: ViperProjectConditionUpsert) -> ProjectCondition:
     topic = db.get(ProjectTopic, payload.topic_id)
     if topic is None:
@@ -158,9 +212,106 @@ def upsert_project_condition(db: Session, payload: ViperProjectConditionUpsert) 
         db.add(condition)
     condition.summary = payload.summary
     condition.last_activity_at = payload.last_activity_at
-    condition.open_items_json = json.dumps(payload.open_items)
+    # The agent sends plain strings; persist them as open tasks.
+    condition.open_items_json = _dump_tasks([{"text": text, "done": False} for text in payload.open_items])
     db.flush()
     return condition
+
+
+def get_project_logs(db: Session, topic_id: str, limit: int = 50) -> list[ProjectLog]:
+    return list(
+        db.scalars(
+            select(ProjectLog)
+            .where(ProjectLog.topic_id == topic_id)
+            .order_by(ProjectLog.created_at.desc(), ProjectLog.id.desc())
+            .limit(limit)
+        )
+    )
+
+
+def create_project(db: Session, payload: ProjectCreate) -> ProjectTopic:
+    """Admin: create a project topic + its condition. Raises ValueError on id collision."""
+    topic_id = (payload.topic_id or "").strip() or _generate_topic_id(db)
+    if db.get(ProjectTopic, topic_id) is not None:
+        raise ValueError(f"topic_id '{topic_id}' already exists")
+    topic = ProjectTopic(topic_id=topic_id, title=payload.title.strip(), active=True)
+    db.add(topic)
+    db.add(
+        ProjectCondition(
+            topic_id=topic_id,
+            summary=(payload.summary or "").strip(),
+            last_activity_at=None,
+            open_items_json=_dump_tasks(payload.open_items),
+        )
+    )
+    db.flush()
+    return topic
+
+
+def _ensure_condition(db: Session, topic_id: str) -> ProjectCondition:
+    condition = db.scalar(select(ProjectCondition).where(ProjectCondition.topic_id == topic_id))
+    if condition is None:
+        condition = ProjectCondition(topic_id=topic_id, summary="", open_items_json="[]")
+        db.add(condition)
+    return condition
+
+
+def update_project(db: Session, topic_id: str, payload: ProjectUpdate) -> ProjectTopic | None:
+    """Admin: patch title/summary/tasks/active. Returns None if the topic is unknown."""
+    topic = db.get(ProjectTopic, topic_id)
+    if topic is None:
+        return None
+    if payload.title is not None:
+        topic.title = payload.title.strip()
+    if payload.active is not None:
+        topic.active = payload.active
+    if payload.summary is not None or payload.open_items is not None:
+        condition = _ensure_condition(db, topic_id)
+        if payload.summary is not None:
+            condition.summary = payload.summary.strip()
+        if payload.open_items is not None:
+            condition.open_items_json = _dump_tasks(payload.open_items)
+    db.flush()
+    return topic
+
+
+def add_project_log(db: Session, topic_id: str, body: str) -> ProjectLog | None:
+    """Admin: append a log entry and bump the project's last activity. None if unknown topic."""
+    topic = db.get(ProjectTopic, topic_id)
+    if topic is None:
+        return None
+    log = ProjectLog(topic_id=topic_id, body=body.strip())
+    db.add(log)
+    _ensure_condition(db, topic_id).last_activity_at = utc_now()
+    db.flush()
+    return log
+
+
+def delete_project_log(db: Session, topic_id: str, log_id: int) -> bool:
+    log = db.get(ProjectLog, log_id)
+    if log is None or log.topic_id != topic_id:
+        return False
+    db.delete(log)
+    db.flush()
+    return True
+
+
+def delete_project(db: Session, topic_id: str) -> bool:
+    """Admin: permanently remove a project and its dependents. None of the FK children
+    may dangle, so logs/condition are removed first and referencing goals are detached."""
+    topic = db.get(ProjectTopic, topic_id)
+    if topic is None:
+        return False
+    for log in db.scalars(select(ProjectLog).where(ProjectLog.topic_id == topic_id)):
+        db.delete(log)
+    condition = db.scalar(select(ProjectCondition).where(ProjectCondition.topic_id == topic_id))
+    if condition is not None:
+        db.delete(condition)
+    for goal in db.scalars(select(Goal).where(Goal.topic_id == topic_id)):
+        goal.topic_id = None
+    db.delete(topic)
+    db.flush()
+    return True
 
 
 def attendance_range(db: Session, start: date, end: date) -> list[AttendanceRecord]:

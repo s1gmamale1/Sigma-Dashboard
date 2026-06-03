@@ -427,6 +427,13 @@ th {
 tbody tr:last-child td {
   border-bottom: 0;
 }
+.cell-times {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: var(--sp-1);
+  white-space: nowrap;
+}
 
 /* Progress */
 .progress {
@@ -510,6 +517,209 @@ tbody tr:last-child td {
   color: var(--label-secondary);
   text-align: center;
   padding: var(--sp-5);
+}
+
+/* Modal sheet — overlay + slide-up panel (chrome-grade) */
+.sheet-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  align-items: end;
+  justify-items: center;
+  padding: var(--sp-4);
+  background: rgba(0, 0, 0, 0.4);
+  animation: overlay-in 200ms var(--ease-out) both;
+}
+@media (min-width: 700px) {
+  .sheet-overlay {
+    align-items: center;
+  }
+}
+.sheet-panel {
+  width: min(560px, 100%);
+  max-height: min(88vh, 760px);
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  box-shadow: var(--shadow-float);
+  animation: sheet-up var(--dur-smooth) var(--spring-smooth) both;
+}
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-4) var(--sp-3);
+  border-bottom: 1px solid var(--separator);
+}
+.sheet-head .h2 {
+  margin: 0;
+}
+.sheet-body {
+  display: grid;
+  gap: var(--sp-4);
+  padding: var(--sp-4);
+  overflow-y: auto;
+}
+.sheet-foot {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  padding-top: var(--sp-3);
+  margin-top: var(--sp-1);
+  border-top: 1px solid var(--separator);
+  background: var(--surface);
+}
+.sheet-foot__danger,
+.sheet-foot__primary {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+.confirm-delete {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes sheet-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sheet-overlay {
+    animation: overlay-in 120ms ease both;
+  }
+  .sheet-panel {
+    animation: overlay-in 120ms ease both;
+  }
+}
+
+/* Shared form field (label + input/textarea) */
+.field {
+  display: grid;
+  gap: 6px;
+  color: var(--label-secondary);
+  font-weight: 600;
+  font-size: var(--type-subhead);
+}
+.field__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+.field input,
+.field textarea {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--separator);
+  border-radius: var(--r-control);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--surface);
+  color: var(--label);
+  font: inherit;
+  font-size: var(--type-body);
+  font-weight: 400;
+}
+.field textarea {
+  resize: vertical;
+  line-height: 1.4;
+}
+.field input:focus-visible,
+.field textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+
+/* Ghost + danger buttons */
+.ghost-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-1);
+  min-height: 44px;
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-control);
+  color: var(--accent);
+  background: var(--fill-2);
+  font-weight: 600;
+  font-size: var(--type-subhead);
+  transition: background var(--dur-snappy) var(--ease-out), transform var(--dur-snappy) var(--spring-snappy);
+}
+.ghost-button:hover {
+  background: var(--fill);
+}
+.ghost-button:active {
+  transform: scale(0.97);
+}
+.ghost-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.ghost-button--danger {
+  color: var(--danger);
+}
+.danger-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  min-height: 44px;
+  padding: 0 var(--sp-4);
+  border-radius: var(--r-control);
+  color: var(--on-accent);
+  background: var(--danger);
+  font-weight: 600;
+  transition: transform var(--dur-snappy) var(--spring-snappy), filter var(--dur-snappy) var(--ease-out);
+}
+.danger-button:hover {
+  filter: brightness(1.05);
+}
+.danger-button:active {
+  transform: scale(0.97);
+}
+.danger-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.danger-button.compact {
+  min-height: 38px;
+  padding: 0 var(--sp-3);
+  font-size: var(--type-subhead);
+}
+.icon-button--sm {
+  /* Smaller glyph, but keep the full 44px hit target (a11y minimum). */
+  width: 44px;
+  height: 44px;
+  color: var(--label-secondary);
+}
+.icon-button--sm svg {
+  width: 16px;
+  height: 16px;
+}
+.icon-button--sm:hover {
+  color: var(--danger);
 }
 
 /* Materialize entry */

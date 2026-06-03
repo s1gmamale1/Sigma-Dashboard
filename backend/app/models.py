@@ -135,7 +135,17 @@ class ProjectCondition(TimestampMixin, Base):
     topic_id: Mapped[str] = mapped_column(ForeignKey("project_topics.topic_id"), unique=True, nullable=False)
     summary: Mapped[str] = mapped_column(Text, nullable=False)
     last_activity_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # JSON array of tasks: [{"text": str, "done": bool}, ...]. Legacy rows store ["str", ...]
+    # and are coerced to tasks on read (see services._parse_tasks).
     open_items_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
+
+
+class ProjectLog(TimestampMixin, Base):
+    __tablename__ = "project_logs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    topic_id: Mapped[str] = mapped_column(ForeignKey("project_topics.topic_id"), nullable=False, index=True)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
 
 
 class SheetSyncRun(TimestampMixin, Base):

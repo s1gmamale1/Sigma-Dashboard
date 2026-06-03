@@ -11,10 +11,49 @@
   gap: var(--sp-3);
 }
 
+/* Card is a real button → reset button chrome, keep card surface + add affordance */
+.topic-card--button {
+  text-align: left;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  align-content: start;
+  transition: transform var(--dur-snappy) var(--spring-snappy), box-shadow var(--dur-snappy) var(--ease-out);
+}
+.topic-card--button:hover {
+  box-shadow: var(--shadow-float);
+}
+.topic-card--button:active {
+  transform: scale(0.99);
+}
+.topic-card--button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .topic-card__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--sp-2);
+}
+
+.topic-card__summary {
+  font-size: var(--type-subhead);
+  overflow-wrap: anywhere;
+}
+
+/* Archived projects: visible but de-emphasized, with a way back via the editor. */
+.topic-card--archived {
+  opacity: 0.6;
+}
+.topic-chip--archived {
+  color: var(--label-tertiary);
+}
+.projects-toolbar {
+  display: inline-flex;
+  align-items: center;
   gap: var(--sp-2);
 }
 
@@ -38,10 +77,148 @@
   color: var(--label-secondary);
 }
 
+/* Read-only checklist with done state */
 .checklist {
   margin: 0;
-  padding-left: 18px;
+  padding: 0;
+  list-style: none;
   display: grid;
-  gap: 4px;
+  gap: var(--sp-1);
   font-size: var(--type-footnote);
+}
+.checklist__item {
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  align-items: start;
+  gap: var(--sp-2);
+}
+.checklist__box {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  border: 1.5px solid var(--separator);
+  border-radius: 5px;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--on-accent);
+}
+.checklist__item.is-done .checklist__box {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+.checklist__item.is-done .checklist__text {
+  text-decoration: line-through;
+  color: var(--label-tertiary);
+}
+.checklist__text {
+  overflow-wrap: anywhere;
+}
+
+/* New-project button lives in the SectionHeader actions slot — uses .primary-button.compact */
+
+/* Editor — task checklist rows */
+.task-edit-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--sp-2);
+}
+.task-edit-row {
+  display: grid;
+  grid-template-columns: 28px 1fr 44px;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.task-check {
+  display: grid;
+  place-items: center;
+  min-height: 44px;
+  min-width: 28px;
+}
+.task-check input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.task-text-input {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--separator);
+  border-radius: var(--r-control);
+  padding: 0 var(--sp-3);
+  background: var(--surface);
+  color: var(--label);
+  font: inherit;
+  font-size: var(--type-body);
+}
+.task-text-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+.task-text-input.is-done {
+  text-decoration: line-through;
+  color: var(--label-tertiary);
+}
+
+/* Editor — append-only log timeline */
+.log-add {
+  display: flex;
+  gap: var(--sp-2);
+}
+.log-add input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  border: 1px solid var(--separator);
+  border-radius: var(--r-control);
+  padding: 0 var(--sp-3);
+  background: var(--surface);
+  color: var(--label);
+  font: inherit;
+  font-size: var(--type-body);
+}
+.log-add input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+.log-timeline {
+  margin: var(--sp-2) 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--sp-2);
+}
+.log-row {
+  display: grid;
+  grid-template-columns: 1fr 44px;
+  align-items: start;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-control);
+  background: var(--fill-2);
+}
+.log-row__main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.log-row__time {
+  font-size: var(--type-caption);
+  letter-spacing: var(--track-caption);
+  color: var(--label-secondary);
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.log-row__body {
+  margin: 0;
+  font-size: var(--type-subhead);
+  color: var(--label);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }

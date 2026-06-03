@@ -30,3 +30,13 @@ export function shortTime(value: string | null): string {
   return new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" }).format(new Date(value));
 }
 
+/**
+ * Parse a backend timestamp. Some are serialized as naive UTC (no `Z`/offset, e.g.
+ * project last_activity/log times via utc_now()); JS would otherwise read those as
+ * *local* time and be hours off. Treat a designator-less ISO string as UTC.
+ */
+export function parseServerDate(iso: string): Date {
+  const hasTz = /[zZ]|[+-]\d{2}:?\d{2}$/.test(iso);
+  return new Date(hasTz ? iso : `${iso}Z`);
+}
+

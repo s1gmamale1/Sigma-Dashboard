@@ -47,6 +47,7 @@ export function App() {
 function AuthenticatedDashboard({ token, logout }: { token: string; logout: () => void }) {
   const [active, setActive] = useState<Tab>("overview");
   const [selectedDate, setSelectedDate] = useState(isoDate());
+  const [showArchivedProjects, setShowArchivedProjects] = useState(false);
   const queryClient = useQueryClient();
   const startOfWeek = useMemo(() => weekStart(selectedDate), [selectedDate]);
   const historyStart = useMemo(() => addDays(selectedDate, -6), [selectedDate]);
@@ -80,8 +81,8 @@ function AuthenticatedDashboard({ token, logout }: { token: string; logout: () =
     queryFn: () => api.goals(token)
   });
   const projects = useQuery({
-    queryKey: ["project-conditions"],
-    queryFn: () => api.projectConditions(token)
+    queryKey: ["project-conditions", showArchivedProjects],
+    queryFn: () => api.projectConditions(token, showArchivedProjects)
   });
 
   const activeQueries = {
@@ -129,7 +130,14 @@ function AuthenticatedDashboard({ token, logout }: { token: string; logout: () =
           <ReportsView reports={reports.data} performance={performance.data} />
         ) : null}
         {active === "goals" && goals.data ? <GoalsView goals={goals.data} /> : null}
-        {active === "projects" && projects.data ? <ProjectConditionView conditions={projects.data} /> : null}
+        {active === "projects" && projects.data ? (
+          <ProjectConditionView
+            token={token}
+            conditions={projects.data}
+            showArchived={showArchivedProjects}
+            onShowArchived={setShowArchivedProjects}
+          />
+        ) : null}
         {active === "sheets" ? <SheetsView token={token} /> : null}
       </>
     );

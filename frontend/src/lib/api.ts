@@ -10,9 +10,24 @@ import type {
   Overview,
   PerformanceRow,
   ProjectCondition,
+  ProjectTask,
   Report,
   WeeklySummaryRow
 } from "./types";
+
+export interface CreateProjectBody {
+  title: string;
+  topic_id?: string;
+  summary?: string;
+  open_items: ProjectTask[];
+}
+
+export interface UpdateProjectBody {
+  title?: string;
+  summary?: string;
+  open_items?: ProjectTask[];
+  active?: boolean;
+}
 
 const loginSchema = z.object({
   username: z.string().min(1),
@@ -65,7 +80,36 @@ export const api = {
   performance: (token: string, from: string, to: string) =>
     apiFetch<PerformanceRow[]>(`/api/v1/performance?from=${from}&to=${to}`, token),
   goals: (token: string) => apiFetch<Goal[]>("/api/v1/goals", token),
-  projectConditions: (token: string) => apiFetch<ProjectCondition[]>("/api/v1/project-conditions", token),
+  projectConditions: (token: string, includeArchived = false) =>
+    apiFetch<ProjectCondition[]>(
+      `/api/v1/project-conditions${includeArchived ? "?include_archived=true" : ""}`,
+      token
+    ),
+  createProject: (token: string, body: CreateProjectBody) =>
+    apiFetch<ProjectCondition>("/api/v1/projects", token, {
+      method: "POST",
+      body: JSON.stringify(body)
+    }),
+  updateProject: (token: string, topicId: string, body: UpdateProjectBody) =>
+    apiFetch<ProjectCondition>(`/api/v1/projects/${encodeURIComponent(topicId)}`, token, {
+      method: "PATCH",
+      body: JSON.stringify(body)
+    }),
+  deleteProject: (token: string, topicId: string) =>
+    apiFetch<{ topic_id: string }>(`/api/v1/projects/${encodeURIComponent(topicId)}`, token, {
+      method: "DELETE"
+    }),
+  addProjectLog: (token: string, topicId: string, bodyText: string) =>
+    apiFetch<ProjectCondition>(`/api/v1/projects/${encodeURIComponent(topicId)}/logs`, token, {
+      method: "POST",
+      body: JSON.stringify({ body: bodyText })
+    }),
+  deleteProjectLog: (token: string, topicId: string, logId: number) =>
+    apiFetch<ProjectCondition>(
+      `/api/v1/projects/${encodeURIComponent(topicId)}/logs/${logId}`,
+      token,
+      { method: "DELETE" }
+    ),
   syncAttendance: (token: string) => apiFetch<Record<string, unknown>>("/api/v1/sheets/sync/attendance", token, { method: "POST" }),
   googleSheetPreview: (token: string) => apiFetch<GoogleSheetPreview>("/api/v1/google-sheet/preview", token),
   googleSheetImport: (token: string) =>

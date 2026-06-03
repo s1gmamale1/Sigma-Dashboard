@@ -86,9 +86,18 @@ curl -s -X POST http://localhost:8000/api/v1/viper/attendance \
 | `GET` | `/goals?status=` | Admin | All goals (owner, progress, deadline, latest log); optional `status` filter. |
 
 ### Projects
+Each project carries a title, a rolling condition summary, a task checklist (`open_items` =
+`[{text, done}]`), and an append-only **log timeline**. The Viper agent still writes conditions
+via `/viper/project-condition`; admins additionally create/edit/archive/delete from the dashboard.
+
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| `GET` | `/project-conditions` | Admin | Rolling condition per active topic (summary, last activity, open items). |
+| `GET` | `/project-conditions?include_archived=` | Admin | Each project's condition (summary, last activity, task checklist, recent logs). Active only unless `include_archived=true`. |
+| `POST` | `/projects` | Admin | Create a project (`title`, optional `topic_id`/`summary`/`open_items`); `topic_id` is auto-generated when omitted. |
+| `PATCH` | `/projects/{topic_id}` | Admin | Patch `title`/`summary`/`open_items`/`active`. `active:false` archives (hides from the board); `active:true` restores. |
+| `DELETE` | `/projects/{topic_id}` | Admin | Permanently delete a project, its condition, and its logs (referencing goals are detached). |
+| `POST` | `/projects/{topic_id}/logs` | Admin | Append a timestamped log entry and bump `last_activity_at`. |
+| `DELETE` | `/projects/{topic_id}/logs/{log_id}` | Admin | Remove a single log entry. |
 
 ### Viper ingest (write API)
 | Method | Path | Auth | Purpose |

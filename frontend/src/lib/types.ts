@@ -82,12 +82,25 @@ export interface Goal {
   latest_log: string | null;
 }
 
+export interface ProjectTask {
+  text: string;
+  done: boolean;
+}
+
+export interface ProjectLog {
+  id: number;
+  body: string;
+  created_at: string;
+}
+
 export interface ProjectCondition {
   topic_id: string;
   title: string | null;
   summary: string | null;
   last_activity_at: string | null;
-  open_items: string[];
+  open_items: ProjectTask[];
+  logs: ProjectLog[];
+  active: boolean;
   updated_at: string | null;
 }
 

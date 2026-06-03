@@ -91,7 +91,14 @@ export function AttendanceView({ token, shiftDate, today, history, weekly }: Att
                     {row.cells.map((cell) => (
                       <td key={cell.date}>
                         <StatusPill value={cell.status} />
-                        <small className="muted">{shortTime(cell.check_in_at)}</small>
+                        {cell.check_in_at || cell.check_out_at ? (
+                          <div className="cell-times">
+                            <small className="muted num">in {shortTime(cell.check_in_at)}</small>
+                            <small className="muted num">out {shortTime(cell.check_out_at)}</small>
+                          </div>
+                        ) : (
+                          <small className="muted">—</small>
+                        )}
                       </td>
                     ))}
                   </tr>
