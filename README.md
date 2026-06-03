@@ -71,7 +71,8 @@ SIGMA_SHEET_SYNC_HOUR=19          # 19:00 Asia/Tashkent, daily
 SIGMA_SHEET_SYNC_MINUTE=0
 ```
 
-Status/charge is computed from the Arrival time by the policy engine; the Status
-column drives only No Show (charged) and Absent (excused). `POST /api/v1/attendance/import-sheet`
-runs the same pull on demand. Run the service with a **single** worker so only one
-scheduler fires (the import is idempotent regardless).
+The sheet's Status column is authoritative — its five values (On time / Late / 15+ Late /
+No Show / Absent) map straight to the dashboard; the Arrival time only sets the minutes-late
+detail. There are no charges. `POST /api/v1/attendance/import-sheet` runs the same pull on
+demand. Run the service with a **single** worker so only one scheduler fires (the import is
+idempotent regardless).

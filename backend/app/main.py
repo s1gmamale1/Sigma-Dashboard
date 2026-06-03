@@ -74,7 +74,7 @@ Two schemes (see the **Authorize** button):
 OPENAPI_TAGS = [
     {"name": "Auth", "description": "Obtain an admin session token."},
     {"name": "Dashboard", "description": "Aggregated home view for a shift day."},
-    {"name": "Attendance", "description": "Tonight's shift, history grid, weekly charge summary, and chase state."},
+    {"name": "Attendance", "description": "Tonight's shift, history grid, weekly lateness summary, and chase state."},
     {"name": "Reports", "description": "Daily reports and the performance roll-up."},
     {"name": "Goals", "description": "Active goals and at-risk goals."},
     {"name": "Projects", "description": "Per-topic project condition."},

@@ -71,7 +71,7 @@
           "Dashboard"
         ],
         "summary": "Dashboard overview",
-        "description": "Aggregated home view for a shift day: tonight's attendance, the weekly charge\nsummary, the count of missing reports, at-risk goals, and stale project topics.",
+        "description": "Aggregated home view for a shift day: tonight's attendance, the weekly lateness\nsummary, the count of missing reports, at-risk goals, and stale project topics.",
         "operationId": "dashboard_overview_api_v1_dashboard_overview_get",
         "security": [
           {
@@ -657,7 +657,7 @@
           "Viper ingest"
         ],
         "summary": "Upsert attendance (Viper)",
-        "description": "Idempotent upsert of one person's attendance for a shift day (keyed on person + date).\nThe person is created on first sight. Charge/late policy is computed server-side.",
+        "description": "Idempotent upsert of one person's attendance for a shift day (keyed on person + date).\nThe person is created on first sight. The attendance status is derived server-side.",
         "operationId": "viper_attendance_api_v1_viper_attendance_post",
         "requestBody": {
           "content": {
@@ -2941,7 +2941,7 @@
     },
     {
       "name": "Attendance",
-      "description": "Tonight's shift, history grid, weekly charge summary, and chase state."
+      "description": "Tonight's shift, history grid, weekly lateness summary, and chase state."
     },
     {
       "name": "Reports",

@@ -63,14 +63,14 @@ curl -s -X POST http://localhost:8000/api/v1/viper/attendance \
 ### Dashboard
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| `GET` | `/dashboard/overview?shift_date=` | Admin | Aggregated home view: tonight, weekly charge, missing reports, at-risk goals, stale topics. |
+| `GET` | `/dashboard/overview?shift_date=` | Admin | Aggregated home view: tonight, weekly lateness, missing reports, at-risk goals, stale topics. |
 
 ### Attendance
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | `GET` | `/attendance/today?shift_date=` | Admin | Each person's record for the shift day (defaults to today). |
 | `GET` | `/attendance/history?from=&to=` | Admin | People × days grid; missing days return a `missing` cell. |
-| `GET` | `/attendance/weekly-summary?week_start=` | Admin | Per-person lates, charged count, total charge (UZS) for the Mon–Sun week. |
+| `GET` | `/attendance/weekly-summary?week_start=` | Admin | Per-person counts of each status (on-time / late / 15+ late / no-show / absent) for the Mon–Sun week. |
 | `PATCH` | `/attendance/{record_id}/chase-state` | Admin | Set chase state (`none`/`needs_chase`/`chased`/`resolved`). |
 | `POST` | `/attendance/import-sheet` | Admin | Pull the wide HR `Sigma Attendnace` tab into the dashboard now (same job as the 19:00 auto-sync). |
 
@@ -93,7 +93,7 @@ curl -s -X POST http://localhost:8000/api/v1/viper/attendance \
 ### Viper ingest (write API)
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| `POST` | `/viper/attendance` | Viper | Idempotent upsert of attendance (keyed on person + date); charge policy is server-side. |
+| `POST` | `/viper/attendance` | Viper | Idempotent upsert of attendance (keyed on person + date); the status is derived server-side. |
 | `POST` | `/viper/report` | Viper | Idempotent upsert of a daily report (keyed on person + date). |
 | `POST` | `/viper/goal` | Viper | Idempotent upsert of a goal (keyed on `slug`); `progress_log` is appended. |
 | `POST` | `/viper/project-condition` | Viper | Idempotent upsert of a topic's condition (keyed on `topic_id`). |
@@ -115,10 +115,12 @@ the agent does **not** double-write to the API.
 - **Schedule:** every day at **19:00 Asia/Tashkent** (configurable via `SIGMA_SHEET_SYNC_HOUR`/
   `SIGMA_SHEET_SYNC_MINUTE`/`SIGMA_SHEET_SYNC_ENABLED`). At 19:00 arrivals exist; out-times (~03:00)
   appear on the following day's run.
-- **Classification:** status/charge is computed from the **Arrival time** by the policy engine
-  (15-min grace · 1st late/week free · 2nd late or 15+ → charged). The Status column is honored
-  only for **No Show** (→ charged) and **Absent** (→ excused). Re-syncing never overwrites the
-  admin-set **chase state** or notes.
+- **Classification:** the sheet's **Status** column is authoritative — its five values map
+  straight through (On time → `on_time`, Late → `late`, 15+ Late → `late_15`, No Show →
+  `no_show`, Absent → `absent`); the **Arrival time** only sets the minutes-late detail. If the
+  Status cell is blank, the status is derived from arrival vs the 18:00 shift (15-min grace:
+  on time → `on_time`, within grace → `late`, beyond → `late_15`). There are no charges.
+  Re-syncing never overwrites the admin-set **chase state** or notes.
 - **Manual trigger:** `POST /api/v1/attendance/import-sheet` runs the same job on demand.
 - **Config:** needs `SIGMA_GOOGLE_CREDENTIALS_PATH`, the sheet shared with the service account,
   and `SIGMA_GOOGLE_SHEET_ID` (set explicitly when several sheets share the name "HR Department").

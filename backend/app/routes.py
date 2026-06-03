@@ -144,7 +144,7 @@ def dashboard_overview(
     db: Session = Depends(get_db),
     _: str = Depends(require_admin),
 ) -> Envelope:
-    """Aggregated home view for a shift day: tonight's attendance, the weekly charge
+    """Aggregated home view for a shift day: tonight's attendance, the weekly lateness
     summary, the count of missing reports, at-risk goals, and stale project topics."""
     current = shift_date or date.today()
     week_start, week_end = week_bounds(current)
@@ -455,7 +455,7 @@ def viper_attendance(
     _: str = Depends(require_viper),
 ) -> Envelope:
     """Idempotent upsert of one person's attendance for a shift day (keyed on person + date).
-    The person is created on first sight. Charge/late policy is computed server-side."""
+    The person is created on first sight. The attendance status is derived server-side."""
     record = upsert_attendance(db, payload)
     db.commit()
     db.refresh(record)
