@@ -3,6 +3,14 @@
 Internal FastAPI + React dashboard for Viper-tracked attendance, reports,
 goals, and project condition.
 
+## Design
+
+The UI follows an Apple-grade, token-driven design system — dual light/dark themes,
+glass chrome (nav only), restrained spring motion, and full reduced-motion / contrast /
+transparency fallbacks. Styles live in `frontend/src/styles/` (`tokens.css` · `base.css` ·
+`components.css` + `views/*.css`); charts are custom SVG (no charting dependency). Full
+rationale and the implementation plan are in `docs/superpowers/`.
+
 ## Development
 
 ```bash
