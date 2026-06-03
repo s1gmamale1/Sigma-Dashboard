@@ -1,0 +1,68 @@
+/* login — centered card on a calm field (§7.7) */
+
+.login-shell {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: var(--sp-5);
+}
+
+.login-panel {
+  display: grid;
+  width: min(420px, 100%);
+  gap: var(--sp-4);
+  padding: var(--sp-6);
+}
+
+.login-mark {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--r-control);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.login-panel .title {
+  margin: 0;
+  font-size: var(--type-large-title);
+  letter-spacing: var(--track-large-title);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.login-panel .field {
+  display: grid;
+  gap: 6px;
+  color: var(--label-secondary);
+  font-weight: 600;
+  font-size: var(--type-subhead);
+}
+
+.login-panel input {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--separator);
+  border-radius: var(--r-control);
+  padding: 0 var(--sp-3);
+  background: var(--surface);
+  color: var(--label);
+  font-size: var(--type-body);
+}
+
+.login-panel input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+
+.login-panel .primary-button {
+  width: 100%;
+}
+
+.form-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: var(--type-subhead);
+}

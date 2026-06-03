@@ -1,9 +1,13 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { api } from "../lib/api";
 import { shortDate, shortTime } from "../lib/dates";
 import type { Attendance, AttendanceHistoryRow, ChaseState, WeeklySummaryRow } from "../lib/types";
+import { Avatar } from "./Avatar";
+import { BarChart } from "./BarChart";
+import { Card } from "./Card";
+import { ChaseControl } from "./ChaseControl";
 import { EmptyState } from "./EmptyState";
+import { SectionHeader } from "./SectionHeader";
 import { StatusPill } from "./StatusPill";
 
 interface AttendanceViewProps {
@@ -18,74 +22,59 @@ export function AttendanceView({ token, shiftDate, today, history, weekly }: Att
   const queryClient = useQueryClient();
   const mutation = useMutation({
     mutationFn: ({ id, state }: { id: number; state: ChaseState }) => api.patchChase(token, id, state),
-    onSuccess: () => {
+    onMutate: async ({ id, state }: { id: number; state: ChaseState }) => {
+      await queryClient.cancelQueries({ queryKey: ["today", shiftDate] });
+      const prev = queryClient.getQueryData<Attendance[]>(["today", shiftDate]);
+      queryClient.setQueryData<Attendance[]>(["today", shiftDate], (old) =>
+        (old ?? []).map((row) => (row.id === id ? { ...row, chase_state: state } : row))
+      );
+      return { prev };
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.prev) {
+        queryClient.setQueryData(["today", shiftDate], context.prev);
+      }
+    },
+    onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ["today", shiftDate] });
       void queryClient.invalidateQueries({ queryKey: ["overview", shiftDate] });
     }
   });
 
-  const chartData = weekly.map((row) => ({
-    name: row.person.display_name,
-    lates: row.lates,
-    charged: row.charged_count
-  }));
-
   return (
     <section className="view-grid">
-      <section className="panel wide">
-        <header className="panel-header">
-          <h2>Today</h2>
-        </header>
+      <Card wide>
+        <SectionHeader title="Today" />
         {today.length ? (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Person</th>
-                  <th>Status</th>
-                  <th>Check-in</th>
-                  <th>Check-out</th>
-                  <th>Late</th>
-                  <th>Charge</th>
-                  <th>Chase</th>
-                </tr>
-              </thead>
-              <tbody>
-                {today.map((record) => (
-                  <tr key={record.id}>
-                    <td>{record.person.display_name}</td>
-                    <td><StatusPill value={record.status} /></td>
-                    <td>{shortTime(record.check_in_at)}</td>
-                    <td>{shortTime(record.check_out_at)}</td>
-                    <td>{record.minutes_late}m</td>
-                    <td>{record.charge_amount_uzs.toLocaleString()} UZS</td>
-                    <td>
-                      <select
-                        value={record.chase_state}
-                        onChange={(event) =>
-                          mutation.mutate({ id: record.id, state: event.target.value as ChaseState })
-                        }
-                      >
-                        <option value="none">None</option>
-                        <option value="needs_chase">Needs chase</option>
-                        <option value="chased">Chased</option>
-                        <option value="resolved">Resolved</option>
-                      </select>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="att-rows">
+            {today.map((record) => (
+              <div className="att-row" key={record.id}>
+                <Avatar name={record.person.display_name} />
+                <div className="att-row__main">
+                  <strong>{record.person.display_name}</strong>
+                  <span className="muted num">
+                    in {shortTime(record.check_in_at)} · out {shortTime(record.check_out_at)} ·{" "}
+                    {record.minutes_late}m late · {record.charge_amount_uzs.toLocaleString()} UZS
+                  </span>
+                </div>
+                <div className="att-row__status">
+                  <StatusPill value={record.status} />
+                </div>
+                <ChaseControl
+                  value={record.chase_state}
+                  onChange={(state) => mutation.mutate({ id: record.id, state })}
+                  disabled={mutation.isPending}
+                />
+              </div>
+            ))}
           </div>
         ) : (
           <EmptyState title="No attendance records" />
         )}
-      </section>
+      </Card>
 
-      <section className="panel wide">
-        <header className="panel-header">
-          <h2>History</h2>
-        </header>
+      <Card wide>
+        <SectionHeader title="History" />
         {history.length ? (
           <div className="matrix-wrap">
             <table className="matrix">
@@ -102,7 +91,7 @@ export function AttendanceView({ token, shiftDate, today, history, weekly }: Att
                     {row.cells.map((cell) => (
                       <td key={cell.date}>
                         <StatusPill value={cell.status} />
-                        <small>{shortTime(cell.check_in_at)}</small>
+                        <small className="muted">{shortTime(cell.check_in_at)}</small>
                       </td>
                     ))}
                   </tr>
@@ -113,38 +102,35 @@ export function AttendanceView({ token, shiftDate, today, history, weekly }: Att
         ) : (
           <EmptyState title="No history range data" />
         )}
-      </section>
+      </Card>
 
-      <section className="panel">
-        <header className="panel-header">
-          <h2>Weekly lates</h2>
-        </header>
-        <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={chartData}>
-            <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-            <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
-            <Tooltip />
-            <Bar dataKey="lates" fill="var(--accent)" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="charged" fill="var(--danger)" radius={[4, 4, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </section>
+      <Card>
+        <SectionHeader title="Weekly lates" />
+        <BarChart
+          data={weekly.map((row) => ({
+            label: row.person.display_name,
+            value: row.lates,
+            value2: row.charged_count
+          }))}
+          ariaLabel="Weekly lates and charged counts per person"
+          seriesLabels={["Lates", "Charged"]}
+        />
+      </Card>
 
-      <section className="panel">
-        <header className="panel-header">
-          <h2>Weekly totals</h2>
-        </header>
-        <div className="stack">
+      <Card>
+        <SectionHeader title="Weekly totals" />
+        <div className="total-rows">
           {weekly.map((row) => (
-            <article className="list-item" key={row.person.id}>
+            <div className="total-row" key={row.person.id}>
               <strong>{row.person.display_name}</strong>
-              <span>{row.lates} late · {row.charged_count} charged</span>
-              <b>{row.total_charge_uzs.toLocaleString()} UZS</b>
-            </article>
+              <b className="num">{row.total_charge_uzs.toLocaleString()} UZS</b>
+              <span className="muted">
+                {row.lates} late · {row.charged_count} charged
+              </span>
+            </div>
           ))}
         </div>
-      </section>
+      </Card>
     </section>
   );
 }
-

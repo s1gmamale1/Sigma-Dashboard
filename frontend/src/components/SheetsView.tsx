@@ -1,7 +1,45 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Database, RefreshCw } from "lucide-react";
 import { api } from "../lib/api";
+import type { GoogleSheetTabPreview } from "../lib/types";
+import { Card } from "./Card";
+import { SectionHeader } from "./SectionHeader";
+import { SkeletonText } from "./Skeleton";
 import { EmptyState } from "./EmptyState";
+
+function errorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
+}
+
+function TabPreview({ tab }: { tab: GoogleSheetTabPreview }) {
+  if (!tab.values.length) {
+    return <EmptyState title="This tab has no visible values in the sampled range" />;
+  }
+  const columnCount = tab.values.reduce((max, row) => Math.max(max, row.length), 0);
+  const [headerRow, ...bodyRows] = tab.values;
+  return (
+    <div className="matrix-wrap">
+      <table className="sheet-preview">
+        <thead>
+          <tr>
+            {Array.from({ length: columnCount }).map((_, cellIndex) => (
+              <th key={cellIndex}>{headerRow[cellIndex] ?? ""}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {bodyRows.map((row, rowIndex) => (
+            <tr key={`${tab.title}-${rowIndex}`}>
+              {Array.from({ length: columnCount }).map((_, cellIndex) => (
+                <td key={cellIndex}>{row[cellIndex] ?? ""}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 export function SheetsView({ token }: { token: string }) {
   const queryClient = useQueryClient();
@@ -17,71 +55,71 @@ export function SheetsView({ token }: { token: string }) {
     }
   });
 
-  if (preview.isLoading) return <EmptyState title="Loading Google Sheet" />;
-  if (preview.error) {
+  if (preview.isLoading) {
     return (
-      <section className="panel wide">
-        <header className="panel-header">
-          <h2>Google Sheet</h2>
-        </header>
-        <EmptyState title={preview.error instanceof Error ? preview.error.message : "Unable to read Google Sheet"} />
+      <section className="view-grid">
+        <Card wide>
+          <SkeletonText lines={4} />
+        </Card>
       </section>
     );
   }
+
+  if (preview.error) {
+    return (
+      <section className="view-grid">
+        <Card wide>
+          <SectionHeader title="Google Sheet" />
+          <EmptyState title={errorMessage(preview.error, "Unable to read Google Sheet")} />
+        </Card>
+      </section>
+    );
+  }
+
   if (!preview.data) return <EmptyState title="No Google Sheet data" />;
 
   return (
     <section className="view-grid">
-      <section className="panel wide">
-        <header className="panel-header">
-          <div>
-            <h2>{preview.data.spreadsheet_title}</h2>
-            <span>Configured as {preview.data.configured_name}</span>
-          </div>
-          <button className="primary-button compact" onClick={() => importer.mutate()} disabled={importer.isPending}>
-            <RefreshCw size={16} aria-hidden="true" />
-            {importer.isPending ? "Importing" : "Import recognized tabs"}
-          </button>
-        </header>
+      <Card wide>
+        <SectionHeader
+          title={preview.data.spreadsheet_title}
+          eyebrow={`Configured as ${preview.data.configured_name}`}
+          actions={
+            <button
+              className="primary-button compact"
+              onClick={() => importer.mutate()}
+              disabled={importer.isPending}
+            >
+              <RefreshCw size={16} aria-hidden="true" />
+              {importer.isPending ? "Importing" : "Import recognized tabs"}
+            </button>
+          }
+        />
         {importer.data ? (
           <div className="import-result">
             <Database size={18} aria-hidden="true" />
             <span>
-              Imported {Object.entries(importer.data.imported).map(([key, value]) => `${value} ${key}`).join(", ")}.
+              Imported{" "}
+              {Object.entries(importer.data.imported)
+                .map(([key, value]) => `${value} ${key}`)
+                .join(", ")}
+              .
             </span>
           </div>
         ) : null}
         {importer.error ? (
-          <p className="form-error">{importer.error instanceof Error ? importer.error.message : "Import failed"}</p>
+          <p className="form-error">{errorMessage(importer.error, "Import failed")}</p>
         ) : null}
-      </section>
+      </Card>
 
       {preview.data.tabs.map((tab) => (
-        <section className="panel wide" key={tab.title}>
-          <header className="panel-header">
-            <div>
-              <h2>{tab.title}</h2>
-              <span>{tab.row_count} rows · {tab.column_count} columns · {tab.sample_range}</span>
-            </div>
-          </header>
-          {tab.values.length ? (
-            <div className="matrix-wrap">
-              <table className="sheet-preview">
-                <tbody>
-                  {tab.values.map((row, rowIndex) => (
-                    <tr key={`${tab.title}-${rowIndex}`}>
-                      {Array.from({ length: Math.max(...tab.values.map((valueRow) => valueRow.length)) }).map((_, cellIndex) => (
-                        <td key={cellIndex}>{row[cellIndex] ?? ""}</td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <EmptyState title="This tab has no visible values in the sampled range" />
-          )}
-        </section>
+        <Card wide key={tab.title}>
+          <SectionHeader
+            title={tab.title}
+            eyebrow={`${tab.row_count} rows · ${tab.column_count} columns · ${tab.sample_range}`}
+          />
+          <TabPreview tab={tab} />
+        </Card>
       ))}
     </section>
   );

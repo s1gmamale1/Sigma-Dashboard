@@ -1,0 +1,149 @@
+/* tokens — Apple-faithful semantic design system (color · type · space · radius · material · motion) */
+
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+
+  /* Labels (alpha off #3C3C43) */
+  --label: #000000;
+  --label-secondary: rgba(60, 60, 67, 0.6);
+  --label-tertiary: rgba(60, 60, 67, 0.3);
+  --label-quaternary: rgba(60, 60, 67, 0.18);
+
+  /* Backgrounds */
+  --bg: #f2f2f7;
+  --surface: #ffffff;
+  --surface-2: #f2f2f7;
+
+  /* Fills + separators */
+  --fill: rgba(120, 120, 128, 0.2);
+  --fill-2: rgba(120, 120, 128, 0.12);
+  --separator: rgba(60, 60, 67, 0.29);
+
+  /* Accent + status */
+  --accent: #007aff;
+  --on-accent: #ffffff;
+  --success: #248a3d;
+  --warning: #b25000;
+  --danger: #d70015;
+
+  /* Glass (chrome only) */
+  --glass-fill: rgba(255, 255, 255, 0.65);
+  --glass-highlight: rgba(255, 255, 255, 0.6);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.06);
+  --shadow-float: 0 8px 32px rgba(0, 0, 0, 0.12);
+
+  /* Typography */
+  --font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --type-large-title: 34px;
+  --track-large-title: -0.016em;
+  --type-title: 22px;
+  --track-title: -0.01em;
+  --type-headline: 17px;
+  --type-body: 17px;
+  --type-callout: 16px;
+  --type-subhead: 15px;
+  --track-subhead: 0.004em;
+  --type-footnote: 13px;
+  --track-footnote: 0.025em;
+  --type-caption: 12px;
+  --track-caption: 0.05em;
+  --metric: 28px;
+
+  /* Space (8pt grid) */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --sp-8: 48px;
+
+  /* Radius */
+  --r-card: 18px;
+  --r-control: 12px;
+  --r-tile: 20px;
+  --r-pill: 999px;
+
+  /* Motion */
+  --spring-snappy: linear(0, 0.012, 0.049, 0.107, 0.185, 0.278, 0.383, 0.493, 0.601, 0.702, 0.791, 0.865, 0.924, 0.967, 0.995, 1.013, 1.019, 1.016, 1.009, 1.003, 1);
+  --dur-snappy: 280ms;
+  --spring-smooth: linear(0, 0.0037, 0.0142, 0.031, 0.0534, 0.0804, 0.1108, 0.1438, 0.1784, 0.2135, 0.2484, 0.3145, 0.3746, 0.4283, 0.4755, 0.5562, 0.6215, 0.6726, 0.7112, 0.7735, 0.8196, 0.854, 0.8793, 0.9185, 0.9458, 0.9647, 0.9779, 0.9921, 1);
+  --dur-smooth: 400ms;
+  --ease-out: cubic-bezier(0.2, 0.6, 0.2, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --label: #ffffff;
+    --label-secondary: rgba(235, 235, 245, 0.6);
+    --label-tertiary: rgba(235, 235, 245, 0.3);
+    --label-quaternary: rgba(235, 235, 245, 0.18);
+
+    --bg: #000000;
+    --surface: #1c1c1e;
+    --surface-2: #2c2c2e;
+
+    --fill: rgba(120, 120, 128, 0.36);
+    --fill-2: rgba(118, 118, 128, 0.24);
+    --separator: rgba(84, 84, 88, 0.6);
+
+    --accent: #0a84ff;
+    --success: #30d158;
+    --warning: #ff9f0a;
+    --danger: #ff453a;
+
+    --glass-fill: rgba(28, 28, 30, 0.65);
+    --glass-highlight: rgba(255, 255, 255, 0.1);
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.4);
+    --shadow-float: 0 8px 32px rgba(0, 0, 0, 0.55);
+  }
+}
+
+/* P3 wide-gamut accent enhancement */
+@supports (color: color(display-p3 1 1 1)) {
+  :root {
+    --accent: color(display-p3 0 0.478 1);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --accent: color(display-p3 0.04 0.52 1);
+    }
+  }
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --label-secondary: rgba(60, 60, 67, 0.8);
+    --separator: rgba(60, 60, 67, 0.55);
+  }
+}
+/* Dark block has higher specificity than :root, so it needs its own override */
+@media (prefers-color-scheme: dark) and (prefers-contrast: more) {
+  :root:not([data-theme="light"]) {
+    --label-secondary: rgba(235, 235, 245, 0.8);
+    --separator: rgba(84, 84, 88, 0.85);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --glass-fill: var(--bg);
+  }
+}
+@media (prefers-color-scheme: dark) and (prefers-reduced-transparency: reduce) {
+  :root:not([data-theme="light"]) {
+    --glass-fill: var(--bg);
+  }
+}
+
+/* Tabular numerals for all numeric content */
+.num,
+.metric,
+td.num,
+.money,
+time {
+  font-variant-numeric: tabular-nums;
+}

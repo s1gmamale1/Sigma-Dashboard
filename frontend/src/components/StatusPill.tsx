@@ -20,5 +20,10 @@ const labels: Record<PillValue, string> = {
 };
 
 export function StatusPill({ value }: { value: PillValue }) {
-  return <span className={`pill pill-${value}`}>{labels[value]}</span>;
+  return (
+    <span className={`pill pill-${value}`}>
+      <span className="pill__dot" aria-hidden="true" />
+      {labels[value]}
+    </span>
+  );
 }

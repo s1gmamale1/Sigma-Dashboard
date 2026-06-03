@@ -1,0 +1,45 @@
+/* goals */
+.goal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--sp-3);
+}
+
+.goal-card {
+  display: grid;
+  gap: var(--sp-3);
+}
+
+.goal-card--risk {
+  box-shadow: inset 3px 0 0 var(--danger), var(--shadow-1);
+}
+
+.goal-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+
+.goal-card dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-2);
+  margin: 0;
+}
+
+.goal-card dt {
+  color: var(--label-secondary);
+  font-size: var(--type-footnote);
+}
+
+.goal-card dd {
+  margin: 0;
+  font-weight: 600;
+  font-size: var(--type-subhead);
+}
+
+.goal-card p {
+  margin: 0;
+  font-size: var(--type-footnote);
+}

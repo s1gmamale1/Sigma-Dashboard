@@ -1,0 +1,90 @@
+/* base — reset, body, focus, type utilities */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: var(--bg);
+  color: var(--label);
+  font-family: var(--font);
+  font-size: var(--type-body);
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+:where(button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  outline-offset: 2px;
+  border-radius: var(--r-control);
+}
+
+.eyebrow {
+  font-size: var(--type-caption);
+  letter-spacing: var(--track-caption);
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--label-secondary);
+}
+
+.title {
+  font-size: var(--type-large-title);
+  font-weight: 700;
+  letter-spacing: var(--track-large-title);
+  margin: 0;
+}
+
+.h2 {
+  font-size: var(--type-title);
+  font-weight: 600;
+  letter-spacing: var(--track-title);
+  margin: 0;
+}
+
+.muted {
+  color: var(--label-secondary);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
