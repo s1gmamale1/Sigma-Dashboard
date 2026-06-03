@@ -19,7 +19,8 @@ from .db import engine
 from .routes import router
 from .schemas import Envelope, ErrorBody
 
-logger = logging.getLogger("sigma.sync")
+# Use uvicorn's logger so scheduler + sync messages appear in the normal server output.
+logger = logging.getLogger("uvicorn.error")
 
 
 def _run_attendance_import_once() -> None:
