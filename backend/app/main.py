@@ -1,16 +1,51 @@
-from pathlib import Path
+import asyncio
+import logging
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta
+from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy.orm import Session
 
+from .attendance_sheet import import_attendance_sheet
 from .bootstrap import init_db
 from .config import get_settings
+from .db import engine
 from .routes import router
 from .schemas import Envelope, ErrorBody
+
+logger = logging.getLogger("sigma.sync")
+
+
+def _run_attendance_import_once() -> None:
+    settings = get_settings()
+    with Session(engine) as db:
+        run = import_attendance_sheet(settings, db)
+        db.commit()
+        logger.info("attendance sheet sync: %s — %s", run.status, run.error_message)
+
+
+async def _attendance_sync_loop() -> None:
+    """Run the attendance import once per day at the configured local time."""
+    settings = get_settings()
+    tz = ZoneInfo(settings.timezone)
+    while True:
+        now = datetime.now(tz)
+        target = now.replace(
+            hour=settings.sheet_sync_hour, minute=settings.sheet_sync_minute, second=0, microsecond=0
+        )
+        if target <= now:
+            target += timedelta(days=1)
+        await asyncio.sleep(max(1.0, (target - now).total_seconds()))
+        try:
+            await asyncio.to_thread(_run_attendance_import_once)
+        except Exception:  # noqa: BLE001 — never let a sync failure kill the loop
+            logger.exception("attendance sheet sync failed")
 
 
 API_DESCRIPTION = """\
@@ -50,7 +85,21 @@ OPENAPI_TAGS = [
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     init_db()
-    yield
+    settings = get_settings()
+    task: asyncio.Task | None = None
+    if settings.sheet_sync_enabled and settings.google_credentials_path:
+        task = asyncio.create_task(_attendance_sync_loop())
+        logger.info(
+            "attendance sheet auto-sync scheduled daily at %02d:%02d %s",
+            settings.sheet_sync_hour,
+            settings.sheet_sync_minute,
+            settings.timezone,
+        )
+    try:
+        yield
+    finally:
+        if task is not None:
+            task.cancel()
 
 
 def error_response(status_code: int, code: str, message: str, details: dict | None = None) -> JSONResponse:

@@ -72,6 +72,7 @@ curl -s -X POST http://localhost:8000/api/v1/viper/attendance \
 | `GET` | `/attendance/history?from=&to=` | Admin | People × days grid; missing days return a `missing` cell. |
 | `GET` | `/attendance/weekly-summary?week_start=` | Admin | Per-person lates, charged count, total charge (UZS) for the Mon–Sun week. |
 | `PATCH` | `/attendance/{record_id}/chase-state` | Admin | Set chase state (`none`/`needs_chase`/`chased`/`resolved`). |
+| `POST` | `/attendance/import-sheet` | Admin | Pull the wide HR `Sigma Attendnace` tab into the dashboard now (same job as the 19:00 auto-sync). |
 
 ### Reports
 | Method | Path | Auth | Purpose |
@@ -103,6 +104,25 @@ curl -s -X POST http://localhost:8000/api/v1/viper/attendance \
 | `POST` | `/sheets/sync/attendance` | Admin | Push attendance to the configured HR sheet; returns the sync run status. |
 | `GET` | `/google-sheet/preview?sample_rows=` | Admin | Spreadsheet/tab metadata + sample rows to verify the wiring. |
 | `POST` | `/google-sheet/import` | Admin | Import rows from tabs with recognizable headers; returns imported/skipped counts. |
+
+## Attendance auto-sync (from the HR sheet)
+
+The Viper/openclaw agent already writes check-in/out + status into the HR Department sheet's
+**`Sigma Attendnace`** tab (wide layout: col A = Date; each person occupies a 3-column block
+Arrival/Out/Status from column B; names on row 2; data from row 4). The dashboard **pulls** it —
+the agent does **not** double-write to the API.
+
+- **Schedule:** every day at **19:00 Asia/Tashkent** (configurable via `SIGMA_SHEET_SYNC_HOUR`/
+  `SIGMA_SHEET_SYNC_MINUTE`/`SIGMA_SHEET_SYNC_ENABLED`). At 19:00 arrivals exist; out-times (~03:00)
+  appear on the following day's run.
+- **Classification:** status/charge is computed from the **Arrival time** by the policy engine
+  (15-min grace · 1st late/week free · 2nd late or 15+ → charged). The Status column is honored
+  only for **No Show** (→ charged) and **Absent** (→ excused). Re-syncing never overwrites the
+  admin-set **chase state** or notes.
+- **Manual trigger:** `POST /api/v1/attendance/import-sheet` runs the same job on demand.
+- **Config:** needs `SIGMA_GOOGLE_CREDENTIALS_PATH`, the sheet shared with the service account,
+  and `SIGMA_GOOGLE_SHEET_ID` (set explicitly when several sheets share the name "HR Department").
+- The older header-based `/google-sheet/import` is a separate generic importer for long-format tabs.
 
 ## Errors
 

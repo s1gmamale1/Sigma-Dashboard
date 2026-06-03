@@ -1047,6 +1047,43 @@
           }
         ]
       }
+    },
+    "/api/v1/attendance/import-sheet": {
+      "post": {
+        "tags": [
+          "Attendance"
+        ],
+        "summary": "Import attendance from the HR sheet now",
+        "description": "Pull the wide `Sigma Attendnace` tab into the dashboard immediately \u2014 the same job the\ndaily 19:00 Asia/Tashkent auto-sync runs. Returns the recorded sync run (status + summary).",
+        "operationId": "import_attendance_sheet_now_api_v1_attendance_import_sheet_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_SheetSyncResult_"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid admin bearer token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
     }
   },
   "components": {

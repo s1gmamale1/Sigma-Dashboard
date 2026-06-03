@@ -80,7 +80,7 @@ def calculate_attendance_status(
             AttendanceRecord.person_id == person_id,
             AttendanceRecord.shift_date >= week_start,
             AttendanceRecord.shift_date <= week_end,
-            AttendanceRecord.shift_date != shift_date,
+            AttendanceRecord.shift_date < shift_date,
             AttendanceRecord.minutes_late > 0,
         )
     ) or 0

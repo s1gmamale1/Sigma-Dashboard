@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from .attendance_sheet import import_attendance_sheet
 from .auth import create_access_token, require_admin, require_viper, verify_password
 from .config import Settings, get_settings
 from .db import get_db
@@ -584,3 +585,30 @@ def google_sheet_import(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     db.commit()
     return ok(result)
+
+
+@router.post(
+    "/attendance/import-sheet",
+    response_model=Envelope[SheetSyncResult],
+    tags=["Attendance"],
+    summary="Import attendance from the HR sheet now",
+    responses={**UNAUTHORIZED},
+)
+def import_attendance_sheet_now(
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+    _: str = Depends(require_admin),
+) -> Envelope:
+    """Pull the wide `Sigma Attendnace` tab into the dashboard immediately — the same job the
+    daily 19:00 Asia/Tashkent auto-sync runs. Returns the recorded sync run (status + summary)."""
+    run = import_attendance_sheet(settings, db)
+    db.commit()
+    return ok(
+        SheetSyncResult(
+            id=run.id,
+            status=run.status,
+            started_at=run.started_at,
+            finished_at=run.finished_at,
+            error_message=run.error_message,
+        )
+    )

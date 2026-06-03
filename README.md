@@ -54,6 +54,24 @@ SIGMA_GOOGLE_SHEET_ID=
 ```
 
 If `SIGMA_GOOGLE_SHEET_ID` is empty, the backend resolves the spreadsheet by
-name through the Drive API. The dashboard `Sheets` tab previews tab metadata and
-sample rows. `POST /api/v1/google-sheet/import` imports rows only from tabs with
-recognizable canonical headers until exact tab/range coordinates are configured.
+name through the Drive API (set the ID explicitly when several sheets share the
+name). The dashboard `Sheets` tab previews tab metadata and sample rows.
+`POST /api/v1/google-sheet/import` imports rows from generic long-format tabs.
+
+### Attendance auto-sync
+
+The dashboard pulls the wide HR attendance tab (`Sigma Attendnace`) so the agent
+that already writes check-in/out to the sheet never double-writes:
+
+```bash
+SIGMA_GOOGLE_SHEET_ID=<the HR Department spreadsheet id>   # required when the name is ambiguous
+SIGMA_ATTENDANCE_TAB=Sigma Attendnace
+SIGMA_SHEET_SYNC_ENABLED=true
+SIGMA_SHEET_SYNC_HOUR=19          # 19:00 Asia/Tashkent, daily
+SIGMA_SHEET_SYNC_MINUTE=0
+```
+
+Status/charge is computed from the Arrival time by the policy engine; the Status
+column drives only No Show (charged) and Absent (excused). `POST /api/v1/attendance/import-sheet`
+runs the same pull on demand. Run the service with a **single** worker so only one
+scheduler fires (the import is idempotent regardless).

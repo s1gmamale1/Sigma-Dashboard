@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     google_credentials_path: str | None = None
     google_sheet_id: str | None = None
     google_sheet_name: str = "HR Department"
+    attendance_tab: str = "Sigma Attendnace"
+    sheet_sync_enabled: bool = True
+    sheet_sync_hour: int = 19
+    sheet_sync_minute: int = 0
     frontend_dist_path: str = "frontend/dist"
 
     model_config = SettingsConfigDict(
