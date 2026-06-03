@@ -22,8 +22,10 @@ export function BarChart({
   seriesLabels?: [string, string];
 }) {
   const reduced = useReducedMotion();
+  // Coerce to a finite number so a missing/NaN datum can never produce invalid SVG geometry.
+  const num = (n: number | undefined) => (Number.isFinite(n) ? (n as number) : 0);
   const grouped = data.some((d) => d.value2 != null);
-  const max = maxProp ?? Math.max(1, ...data.flatMap((d) => [d.value, d.value2 ?? 0]));
+  const max = maxProp ?? Math.max(1, ...data.flatMap((d) => [num(d.value), num(d.value2)]));
   const W = 100;
   const H = 100;
   const pad = 4;
@@ -41,10 +43,12 @@ export function BarChart({
         <line x1="0" y1={H - pad} x2={W} y2={H - pad} className="chart__axis" />
         {data.map((d, i) => {
           const cx = pad + slot * i + slot / 2;
-          const h1 = ((H - pad * 2) * d.value) / max;
-          const bars = [{ v: d.value, cls: "bar", x: grouped ? cx - barW - 1 : cx - barW / 2, h: h1 }];
+          const v1 = num(d.value);
+          const v2 = num(d.value2);
+          const h1 = ((H - pad * 2) * v1) / max;
+          const bars = [{ v: v1, cls: "bar", x: grouped ? cx - barW - 1 : cx - barW / 2, h: h1 }];
           if (grouped) {
-            bars.push({ v: d.value2 ?? 0, cls: "bar bar--2", x: cx + 1, h: ((H - pad * 2) * (d.value2 ?? 0)) / max });
+            bars.push({ v: v2, cls: "bar bar--2", x: cx + 1, h: ((H - pad * 2) * v2) / max });
           }
           return bars.map((b, j) => (
             <rect
@@ -86,8 +90,8 @@ export function BarChart({
             {data.map((d, i) => (
               <tr key={`${d.label}-${i}`}>
                 <th>{d.label}</th>
-                <td>{format(d.value)}</td>
-                {d.value2 != null ? <td>{format(d.value2)}</td> : null}
+                <td>{format(num(d.value))}</td>
+                {d.value2 != null ? <td>{format(num(d.value2))}</td> : null}
               </tr>
             ))}
           </tbody>
