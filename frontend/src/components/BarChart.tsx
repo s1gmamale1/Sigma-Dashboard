@@ -31,8 +31,13 @@ export function BarChart({
   const barW = grouped ? slot * 0.3 : slot * 0.5;
 
   return (
-    <figure className="chart" role="img" aria-label={ariaLabel} style={{ height }}>
-      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="chart__svg">
+    <figure className="chart" role="img" aria-label={ariaLabel}>
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        preserveAspectRatio="none"
+        className="chart__svg"
+        style={{ height: `${height}px` }}
+      >
         <line x1="0" y1={H - pad} x2={W} y2={H - pad} className="chart__axis" />
         {data.map((d, i) => {
           const cx = pad + slot * i + slot / 2;
