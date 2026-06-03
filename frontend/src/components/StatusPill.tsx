@@ -3,11 +3,11 @@ import type { ChaseState, Status } from "../lib/types";
 type PillValue = Status | "missing" | ChaseState | "active" | "overdue" | "done" | "paused";
 
 const labels: Record<PillValue, string> = {
-  in: "In",
+  on_time: "On time",
   late: "Late",
-  charged: "Charged",
-  no_show: "No show",
-  excused: "Excused",
+  late_15: "15+ Late",
+  no_show: "No Show",
+  absent: "Absent",
   missing: "Missing",
   none: "None",
   needs_chase: "Needs chase",

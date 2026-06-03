@@ -96,9 +96,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Weekly charge summary
-         * @description Per-person lates, charged count, and total charge (UZS) for the Mon–Sun week
-         *     beginning at `week_start`. `meta` echoes the resolved `week_start`/`week_end`.
+         * Weekly attendance summary
+         * @description Per-person counts of each attendance status (on_time / late / late_15 / no_show /
+         *     absent) for the Mon–Sun week beginning at `week_start`. `meta` echoes the resolved
+         *     `week_start`/`week_end`.
          */
         get: operations["get_weekly_summary_api_v1_attendance_weekly_summary_get"];
         put?: never;
@@ -392,21 +393,11 @@ export interface components {
              */
             date: string;
             /** Status */
-            status: ("in" | "late" | "charged" | "no_show" | "excused") | "missing";
+            status: ("on_time" | "late" | "late_15" | "no_show" | "absent") | "missing";
             /** Check In At */
             check_in_at?: string | null;
             /** Check Out At */
             check_out_at?: string | null;
-            /**
-             * Charged
-             * @default false
-             */
-            charged: boolean;
-            /**
-             * Charge Amount Uzs
-             * @default 0
-             */
-            charge_amount_uzs: number;
         };
         /** AttendanceHistoryRow */
         AttendanceHistoryRow: {
@@ -432,18 +423,9 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "in" | "late" | "charged" | "no_show" | "excused";
+            status: "on_time" | "late" | "late_15" | "no_show" | "absent";
             /** Minutes Late */
             minutes_late: number;
-            /** Charged */
-            charged: boolean;
-            /** Charge Amount Uzs */
-            charge_amount_uzs: number;
-            /**
-             * Charge Reason
-             * @enum {string}
-             */
-            charge_reason: "none" | "late_after_grace" | "second_late_week" | "no_show" | "manual_policy";
             /**
              * Chase State
              * @enum {string}
@@ -867,9 +849,9 @@ export interface components {
             check_out_at?: string | null;
             /**
              * Status
-             * @example late
+             * @example late_15
              */
-            status?: ("in" | "late" | "charged" | "no_show" | "excused") | null;
+            status?: ("on_time" | "late" | "late_15" | "no_show" | "absent") | null;
             /**
              * Chase State
              * @default none
@@ -952,14 +934,16 @@ export interface components {
         /** WeeklySummaryRow */
         WeeklySummaryRow: {
             person: components["schemas"]["PersonOut"];
-            /** Lates */
-            lates: number;
-            /** Free Late Used */
-            free_late_used: boolean;
-            /** Charged Count */
-            charged_count: number;
-            /** Total Charge Uzs */
-            total_charge_uzs: number;
+            /** On Time */
+            on_time: number;
+            /** Late */
+            late: number;
+            /** Late 15 */
+            late_15: number;
+            /** No Show */
+            no_show: number;
+            /** Absent */
+            absent: number;
         };
     };
     responses: never;

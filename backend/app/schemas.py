@@ -3,8 +3,8 @@ from typing import Any, Generic, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field
 
-AttendanceStatus = Literal["in", "late", "charged", "no_show", "excused"]
-ChargeReason = Literal["none", "late_after_grace", "second_late_week", "no_show", "manual_policy"]
+# The 5 attendance statuses mirror the HR sheet's Status dropdown verbatim.
+AttendanceStatus = Literal["on_time", "late", "late_15", "no_show", "absent"]
 ChaseState = Literal["none", "needs_chase", "chased", "resolved"]
 GoalStatus = Literal["active", "overdue", "done", "paused"]
 
@@ -78,9 +78,6 @@ class AttendanceOut(StrictModel):
     check_out_at: datetime | None
     status: AttendanceStatus
     minutes_late: int
-    charged: bool
-    charge_amount_uzs: int
-    charge_reason: ChargeReason
     chase_state: ChaseState
     notes: str | None
 
@@ -90,8 +87,6 @@ class AttendanceCell(StrictModel):
     status: AttendanceStatus | Literal["missing"]
     check_in_at: datetime | None = None
     check_out_at: datetime | None = None
-    charged: bool = False
-    charge_amount_uzs: int = 0
 
 
 class AttendanceHistoryRow(StrictModel):
@@ -101,10 +96,11 @@ class AttendanceHistoryRow(StrictModel):
 
 class WeeklySummaryRow(StrictModel):
     person: PersonOut
-    lates: int
-    free_late_used: bool
-    charged_count: int
-    total_charge_uzs: int
+    on_time: int
+    late: int
+    late_15: int
+    no_show: int
+    absent: int
 
 
 class ChasePatchRequest(StrictModel):
@@ -121,7 +117,7 @@ class ViperAttendanceUpsert(StrictModel):
     shift_date: date = Field(examples=["2026-06-03"])
     check_in_at: datetime | None = Field(default=None, examples=["2026-06-03T18:02:00+05:00"])
     check_out_at: datetime | None = None
-    status: AttendanceStatus | None = Field(default=None, examples=["late"])
+    status: AttendanceStatus | None = Field(default=None, examples=["late_15"])
     chase_state: ChaseState = "none"
     notes: str | None = None
 

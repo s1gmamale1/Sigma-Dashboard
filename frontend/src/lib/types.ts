@@ -1,4 +1,4 @@
-export type Status = "in" | "late" | "charged" | "no_show" | "excused";
+export type Status = "on_time" | "late" | "late_15" | "no_show" | "absent";
 export type ChaseState = "none" | "needs_chase" | "chased" | "resolved";
 
 export interface Envelope<T> {
@@ -23,9 +23,6 @@ export interface Attendance {
   check_out_at: string | null;
   status: Status;
   minutes_late: number;
-  charged: boolean;
-  charge_amount_uzs: number;
-  charge_reason: string;
   chase_state: ChaseState;
   notes: string | null;
 }
@@ -35,8 +32,6 @@ export interface AttendanceCell {
   status: Status | "missing";
   check_in_at: string | null;
   check_out_at: string | null;
-  charged: boolean;
-  charge_amount_uzs: number;
 }
 
 export interface AttendanceHistoryRow {
@@ -46,10 +41,11 @@ export interface AttendanceHistoryRow {
 
 export interface WeeklySummaryRow {
   person: Person;
-  lates: number;
-  free_late_used: boolean;
-  charged_count: number;
-  total_charge_uzs: number;
+  on_time: number;
+  late: number;
+  late_15: number;
+  no_show: number;
+  absent: number;
 }
 
 export interface Report {

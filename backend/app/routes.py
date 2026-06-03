@@ -78,9 +78,6 @@ def attendance_out(record: AttendanceRecord) -> AttendanceOut:
         check_out_at=record.check_out_at,
         status=record.status,  # type: ignore[arg-type]
         minutes_late=record.minutes_late,
-        charged=record.charged,
-        charge_amount_uzs=record.charge_amount_uzs,
-        charge_reason=record.charge_reason,  # type: ignore[arg-type]
         chase_state=record.chase_state,  # type: ignore[arg-type]
         notes=record.notes,
     )
@@ -238,8 +235,6 @@ def get_attendance_history(
                     status=record.status if record else "missing",  # type: ignore[arg-type]
                     check_in_at=record.check_in_at if record else None,
                     check_out_at=record.check_out_at if record else None,
-                    charged=record.charged if record else False,
-                    charge_amount_uzs=record.charge_amount_uzs if record else 0,
                 )
             )
         rows.append(AttendanceHistoryRow(person=person_out(person), cells=cells))
@@ -250,7 +245,7 @@ def get_attendance_history(
     "/attendance/weekly-summary",
     response_model=Envelope[list[WeeklySummaryRow]],
     tags=["Attendance"],
-    summary="Weekly charge summary",
+    summary="Weekly attendance summary",
     responses={**UNAUTHORIZED},
 )
 def get_weekly_summary(
@@ -258,8 +253,9 @@ def get_weekly_summary(
     db: Session = Depends(get_db),
     _: str = Depends(require_admin),
 ) -> Envelope:
-    """Per-person lates, charged count, and total charge (UZS) for the Mon–Sun week
-    beginning at `week_start`. `meta` echoes the resolved `week_start`/`week_end`."""
+    """Per-person counts of each attendance status (on_time / late / late_15 / no_show /
+    absent) for the Mon–Sun week beginning at `week_start`. `meta` echoes the resolved
+    `week_start`/`week_end`."""
     week_end = week_start + timedelta(days=6)
     people = list(db.scalars(select(Person).where(Person.active.is_(True)).order_by(Person.sort_order)))
     rows: list[WeeklySummaryRow] = []
@@ -273,15 +269,18 @@ def get_weekly_summary(
                 )
             )
         )
-        lates = sum(1 for record in records if record.minutes_late > 0)
-        charged = [record for record in records if record.charged]
+        counts = {status: 0 for status in ("on_time", "late", "late_15", "no_show", "absent")}
+        for record in records:
+            if record.status in counts:
+                counts[record.status] += 1
         rows.append(
             WeeklySummaryRow(
                 person=person_out(person),
-                lates=lates,
-                free_late_used=any(record.minutes_late > 0 and not record.charged for record in records),
-                charged_count=len(charged),
-                total_charge_uzs=sum(record.charge_amount_uzs for record in charged),
+                on_time=counts["on_time"],
+                late=counts["late"],
+                late_15=counts["late_15"],
+                no_show=counts["no_show"],
+                absent=counts["absent"],
             )
         )
     return ok(rows, meta={"week_start": week_start.isoformat(), "week_end": week_end.isoformat()})

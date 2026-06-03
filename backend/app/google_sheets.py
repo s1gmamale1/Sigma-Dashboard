@@ -306,7 +306,7 @@ def _import_attendance_rows(db: Session, rows: list[dict[str, str]]) -> int:
                 shift_date=shift_date,
                 check_in_at=_parse_datetime(_value(row, "check_in_at")),
                 check_out_at=_parse_datetime(_value(row, "check_out_at")),
-                status=status if status in {"in", "late", "charged", "no_show", "excused"} else None,
+                status=status if status in {"on_time", "late", "late_15", "no_show", "absent"} else None,
                 notes=_value(row, "notes"),
             ),
         )

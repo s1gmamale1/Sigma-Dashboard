@@ -5,10 +5,10 @@ Layout (per the HR Department sheet):
 - People occupy fixed 3-column blocks starting at column B: Arrival time / Out time / Status.
 - Person names are on row 2; the data starts on row 4.
 
-The Status column drives only the No-Show / Absent cases; everything present is classified
-from the Arrival time by the existing attendance policy engine (15-min grace, 1st late/week
-free, 2nd late or 15+ → charged). This is the "compute from arrival" mode confirmed with the
-owner. Chase state and notes are admin-owned and are never overwritten on re-sync.
+The Status column is authoritative — the dashboard mirrors the 5 HR values verbatim
+(On time / Late / 15+ Late / No Show / Absent → on_time / late / late_15 / no_show / absent).
+The Arrival time only sets `minutes_late` and the check-in display; there is no charge concept.
+Chase state and notes are admin-owned and are never overwritten on re-sync.
 """
 
 from __future__ import annotations
@@ -31,7 +31,12 @@ from .google_sheets import (
     resolve_spreadsheet_id,
 )
 from .models import AttendanceRecord, SheetSyncRun
-from .services import calculate_attendance_status, get_active_policy, get_or_create_person
+from .services import (
+    calculate_attendance_status,
+    get_active_policy,
+    get_or_create_person,
+    shift_start_datetime,
+)
 
 PERSON_BLOCK_START = 1  # column B (0-indexed): first person's Arrival column
 PERSON_BLOCK_WIDTH = 3  # Arrival, Out, Status
@@ -109,29 +114,37 @@ def _normalize_status(value: str) -> str:
     return text
 
 
+def _minutes_late(db: Session, shift_date: date, check_in_at: datetime | None) -> int:
+    if check_in_at is None:
+        return 0
+    start = shift_start_datetime(shift_date, get_active_policy(db))
+    return max(0, int((check_in_at - start).total_seconds() // 60))
+
+
 def classify_sheet_row(
     db: Session,
-    person_id: int,
     shift_date: date,
     check_in_at: datetime | None,
     status_text: str,
-) -> tuple[str, int, bool, int, str] | None:
-    """Map a sheet row to (status, minutes_late, charged, amount, reason), or None to skip."""
-    policy = get_active_policy(db)
+) -> tuple[str, int] | None:
+    """Map a sheet row to (status, minutes_late). The sheet Status column is authoritative
+    (the 5 HR values); the arrival time only sets `minutes_late` and the check-in display.
+    Returns None to skip an empty row."""
     status = _normalize_status(status_text)
+    mins = _minutes_late(db, shift_date, check_in_at)
     if status in {"absent", "excused"}:
-        return "excused", 0, False, 0, "none"
+        return "absent", 0
     if status in {"no show", "no_show", "noshow"}:
-        return "no_show", 0, True, policy.charge_amount_uzs, "no_show"
-    if check_in_at is not None:
-        return calculate_attendance_status(db, person_id, shift_date, check_in_at, None)
-    # Present status with no arrival time → map the label directly (fallback).
+        return "no_show", 0
     if status in {"on time", "on_time", "ontime", "in"}:
-        return "in", 0, False, 0, "none"
+        return "on_time", mins
     if status in {"15+ late", "15 late", "15+late", "charged"}:
-        return "charged", 0, True, policy.charge_amount_uzs, "late_after_grace"
+        return "late_15", mins
     if status == "late":
-        return "late", 0, False, 0, "none"
+        return "late", mins
+    # No recognizable status text → derive from the arrival time.
+    if check_in_at is not None:
+        return calculate_attendance_status(db, shift_date, check_in_at, None)
     return None
 
 
@@ -142,10 +155,10 @@ def _upsert_row(db: Session, row: SheetAttendanceRow, tz: ZoneInfo) -> bool:
     if check_in and check_out and check_out < check_in:
         check_out = check_out + timedelta(days=1)  # shift crosses midnight (out ~03:00)
 
-    classified = classify_sheet_row(db, person.id, row.shift_date, check_in, row.status_text)
+    classified = classify_sheet_row(db, row.shift_date, check_in, row.status_text)
     if classified is None:
         return False
-    status, minutes_late, charged, amount, reason = classified
+    status, minutes_late = classified
 
     record = db.scalar(
         select(AttendanceRecord).where(
@@ -162,9 +175,6 @@ def _upsert_row(db: Session, row: SheetAttendanceRow, tz: ZoneInfo) -> bool:
     record.check_out_at = check_out
     record.status = status
     record.minutes_late = minutes_late
-    record.charged = charged
-    record.charge_amount_uzs = amount
-    record.charge_reason = reason
     # chase_state and notes are admin-owned — intentionally not reset on re-sync.
     db.flush()
     return True

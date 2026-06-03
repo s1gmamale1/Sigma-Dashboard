@@ -26,6 +26,7 @@
   --success: #248a3d;
   --warning: #b25000;
   --danger: #d70015;
+  --teal: #2a9d8f;
 
   /* Glass (chrome only) */
   --glass-fill: rgba(255, 255, 255, 0.92);
@@ -94,6 +95,7 @@
     --success: #30d158;
     --warning: #ff9f0a;
     --danger: #ff453a;
+    --teal: #4fb3a6;
 
     --glass-fill: rgba(28, 28, 30, 0.92);
     --glass-highlight: rgba(255, 255, 255, 0.1);

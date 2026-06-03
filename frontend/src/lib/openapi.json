@@ -279,8 +279,8 @@
         "tags": [
           "Attendance"
         ],
-        "summary": "Weekly charge summary",
-        "description": "Per-person lates, charged count, and total charge (UZS) for the Mon\u2013Sun week\nbeginning at `week_start`. `meta` echoes the resolved `week_start`/`week_end`.",
+        "summary": "Weekly attendance summary",
+        "description": "Per-person counts of each attendance status (on_time / late / late_15 / no_show /\nabsent) for the Mon\u2013Sun week beginning at `week_start`. `meta` echoes the resolved\n`week_start`/`week_end`.",
         "operationId": "get_weekly_summary_api_v1_attendance_weekly_summary_get",
         "security": [
           {
@@ -1100,11 +1100,11 @@
               {
                 "type": "string",
                 "enum": [
-                  "in",
+                  "on_time",
                   "late",
-                  "charged",
+                  "late_15",
                   "no_show",
-                  "excused"
+                  "absent"
                 ]
               },
               {
@@ -1137,16 +1137,6 @@
               }
             ],
             "title": "Check Out At"
-          },
-          "charged": {
-            "type": "boolean",
-            "title": "Charged",
-            "default": false
-          },
-          "charge_amount_uzs": {
-            "type": "integer",
-            "title": "Charge Amount Uzs",
-            "default": 0
           }
         },
         "additionalProperties": false,
@@ -1219,36 +1209,17 @@
           "status": {
             "type": "string",
             "enum": [
-              "in",
+              "on_time",
               "late",
-              "charged",
+              "late_15",
               "no_show",
-              "excused"
+              "absent"
             ],
             "title": "Status"
           },
           "minutes_late": {
             "type": "integer",
             "title": "Minutes Late"
-          },
-          "charged": {
-            "type": "boolean",
-            "title": "Charged"
-          },
-          "charge_amount_uzs": {
-            "type": "integer",
-            "title": "Charge Amount Uzs"
-          },
-          "charge_reason": {
-            "type": "string",
-            "enum": [
-              "none",
-              "late_after_grace",
-              "second_late_week",
-              "no_show",
-              "manual_policy"
-            ],
-            "title": "Charge Reason"
           },
           "chase_state": {
             "type": "string",
@@ -1282,9 +1253,6 @@
           "check_out_at",
           "status",
           "minutes_late",
-          "charged",
-          "charge_amount_uzs",
-          "charge_reason",
           "chase_state",
           "notes"
         ],
@@ -2623,11 +2591,11 @@
               {
                 "type": "string",
                 "enum": [
-                  "in",
+                  "on_time",
                   "late",
-                  "charged",
+                  "late_15",
                   "no_show",
-                  "excused"
+                  "absent"
                 ]
               },
               {
@@ -2636,7 +2604,7 @@
             ],
             "title": "Status",
             "examples": [
-              "late"
+              "late_15"
             ]
           },
           "chase_state": {
@@ -2914,31 +2882,36 @@
           "person": {
             "$ref": "#/components/schemas/PersonOut"
           },
-          "lates": {
+          "on_time": {
             "type": "integer",
-            "title": "Lates"
+            "title": "On Time"
           },
-          "free_late_used": {
-            "type": "boolean",
-            "title": "Free Late Used"
-          },
-          "charged_count": {
+          "late": {
             "type": "integer",
-            "title": "Charged Count"
+            "title": "Late"
           },
-          "total_charge_uzs": {
+          "late_15": {
             "type": "integer",
-            "title": "Total Charge Uzs"
+            "title": "Late 15"
+          },
+          "no_show": {
+            "type": "integer",
+            "title": "No Show"
+          },
+          "absent": {
+            "type": "integer",
+            "title": "Absent"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
           "person",
-          "lates",
-          "free_late_used",
-          "charged_count",
-          "total_charge_uzs"
+          "on_time",
+          "late",
+          "late_15",
+          "no_show",
+          "absent"
         ],
         "title": "WeeklySummaryRow"
       }

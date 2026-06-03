@@ -61,15 +61,16 @@ export function OverviewView({ overview }: { overview: Overview }) {
       </Card>
 
       <Card className="tile">
-        <SectionHeader title="Weekly charge load" />
+        <SectionHeader title="Weekly lateness" />
         {overview.weekly_summary.length ? (
           <BarChart
             data={overview.weekly_summary.map((row) => ({
               label: row.person.display_name,
-              value: row.total_charge_uzs
+              value: row.late,
+              value2: row.late_15
             }))}
-            ariaLabel="Weekly charge per person in UZS"
-            format={(n) => `${n.toLocaleString()} UZS`}
+            ariaLabel="Weekly late and 15+ late counts per person"
+            seriesLabels={["Late", "15+ Late"]}
           />
         ) : (
           <EmptyState title="No weekly summary yet" />

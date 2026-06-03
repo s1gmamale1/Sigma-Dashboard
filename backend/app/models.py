@@ -6,8 +6,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .db import Base, TimestampMixin
 
 
-ATTENDANCE_STATUSES = ("in", "late", "charged", "no_show", "excused")
-CHARGE_REASONS = ("none", "late_after_grace", "second_late_week", "no_show", "manual_policy")
+ATTENDANCE_STATUSES = ("on_time", "late", "late_15", "no_show", "absent")
 CHASE_STATES = ("none", "needs_chase", "chased", "resolved")
 GOAL_STATUSES = ("active", "overdue", "done", "paused")
 SYNC_STATUSES = ("success", "failed")
@@ -44,7 +43,6 @@ class AttendanceRecord(TimestampMixin, Base):
     __table_args__ = (
         UniqueConstraint("person_id", "shift_date", name="uq_attendance_person_shift"),
         CheckConstraint(f"status in {ATTENDANCE_STATUSES}", name="ck_attendance_status"),
-        CheckConstraint(f"charge_reason in {CHARGE_REASONS}", name="ck_charge_reason"),
         CheckConstraint(f"chase_state in {CHASE_STATES}", name="ck_chase_state"),
     )
 
@@ -55,9 +53,6 @@ class AttendanceRecord(TimestampMixin, Base):
     check_out_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     status: Mapped[str] = mapped_column(String(24), nullable=False)
     minutes_late: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    charged: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    charge_amount_uzs: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    charge_reason: Mapped[str] = mapped_column(String(32), nullable=False, default="none")
     chase_state: Mapped[str] = mapped_column(String(24), nullable=False, default="none")
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 

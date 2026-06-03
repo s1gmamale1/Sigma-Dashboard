@@ -58,46 +58,33 @@ def shift_start_datetime(shift_date: date, policy: AttendancePolicy) -> datetime
 
 def calculate_attendance_status(
     db: Session,
-    person_id: int,
     shift_date: date,
     check_in_at: datetime | None,
     explicit_status: str | None,
-) -> tuple[str, int, bool, int, str]:
-    policy = get_active_policy(db)
-    if explicit_status == "excused":
-        return "excused", 0, False, 0, "none"
-    if check_in_at is None:
-        return "no_show", 0, True, policy.charge_amount_uzs, "no_show"
+) -> tuple[str, int]:
+    """Derive (status, minutes_late) from the arrival time. No charge concept.
 
+    on_time (0 late) · late (1..grace) · late_15 (> grace) · no_show (no check-in) ·
+    absent (explicit). The 15-minute grace splits `late` from `late_15`.
+    """
+    if explicit_status in {"absent", "excused"}:
+        return "absent", 0
+    if check_in_at is None:
+        return "no_show", 0
+    policy = get_active_policy(db)
     start_at = shift_start_datetime(shift_date, policy)
     minutes_late = max(0, int((check_in_at - start_at).total_seconds() // 60))
     if minutes_late == 0:
-        return "in", 0, False, 0, "none"
-
-    week_start, week_end = week_bounds(shift_date)
-    prior_lates = db.scalar(
-        select(func.count(AttendanceRecord.id)).where(
-            AttendanceRecord.person_id == person_id,
-            AttendanceRecord.shift_date >= week_start,
-            AttendanceRecord.shift_date <= week_end,
-            AttendanceRecord.shift_date < shift_date,
-            AttendanceRecord.minutes_late > 0,
-        )
-    ) or 0
-
-    within_grace = minutes_late <= policy.grace_minutes
-    free_available = prior_lates < policy.free_lates_per_week
-    if within_grace and free_available:
-        return "late", minutes_late, False, 0, "none"
-
-    reason = "late_after_grace" if not within_grace else "second_late_week"
-    return "charged", minutes_late, True, policy.charge_amount_uzs, reason
+        return "on_time", 0
+    if minutes_late <= policy.grace_minutes:
+        return "late", minutes_late
+    return "late_15", minutes_late
 
 
 def upsert_attendance(db: Session, payload: ViperAttendanceUpsert) -> AttendanceRecord:
     person = get_or_create_person(db, payload.person.slug, payload.person.display_name)
-    status, minutes_late, charged, amount, reason = calculate_attendance_status(
-        db, person.id, payload.shift_date, payload.check_in_at, payload.status
+    status, minutes_late = calculate_attendance_status(
+        db, payload.shift_date, payload.check_in_at, payload.status
     )
     record = db.scalar(
         select(AttendanceRecord).where(
@@ -112,9 +99,6 @@ def upsert_attendance(db: Session, payload: ViperAttendanceUpsert) -> Attendance
     record.check_out_at = payload.check_out_at
     record.status = status
     record.minutes_late = minutes_late
-    record.charged = charged
-    record.charge_amount_uzs = amount
-    record.charge_reason = reason
     record.chase_state = payload.chase_state
     record.notes = payload.notes
     db.flush()
@@ -211,8 +195,6 @@ def sync_attendance_to_sheet(db: Session) -> SheetSyncRun:
                 "check_in_at",
                 "check_out_at",
                 "minutes_late",
-                "charged",
-                "charge_amount_uzs",
                 "chase_state",
                 "notes",
             ]
@@ -226,8 +208,6 @@ def sync_attendance_to_sheet(db: Session) -> SheetSyncRun:
                     record.check_in_at.isoformat() if record.check_in_at else "",
                     record.check_out_at.isoformat() if record.check_out_at else "",
                     record.minutes_late,
-                    record.charged,
-                    record.charge_amount_uzs,
                     record.chase_state,
                     record.notes or "",
                 ]

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from backend.app.attendance_sheet import apply_attendance_rows, parse_attendance_grid
 from backend.app.bootstrap import seed_db
 from backend.app.db import Base
-from backend.app.models import AttendancePolicy, AttendanceRecord, Person
+from backend.app.models import AttendanceRecord, Person
 
 TZ = ZoneInfo("Asia/Tashkent")
 
@@ -26,9 +26,6 @@ def make_db() -> Session:
     Base.metadata.create_all(engine)
     session = Session(engine)
     seed_db(session)
-    policy = session.scalar(select(AttendancePolicy))
-    assert policy is not None
-    policy.charge_amount_uzs = 50_000
     session.commit()
     return session
 
@@ -56,17 +53,16 @@ def test_apply_classifies_from_arrival_and_status() -> None:
         for r in db.scalars(select(AttendanceRecord))
     }
     oliver_d1 = by[("oliver", date(2026, 6, 1))]
-    assert oliver_d1.status == "in" and oliver_d1.charged is False
+    assert oliver_d1.status == "on_time"
 
     oliver_d2 = by[("oliver", date(2026, 6, 2))]
-    assert oliver_d2.status == "charged" and oliver_d2.minutes_late == 25
-    assert oliver_d2.charge_reason == "late_after_grace"
+    assert oliver_d2.status == "late_15" and oliver_d2.minutes_late == 25
 
     sam_d1 = by[("sam", date(2026, 6, 1))]
-    assert sam_d1.status == "no_show" and sam_d1.charged is True
+    assert sam_d1.status == "no_show"
 
     sam_d2 = by[("sam", date(2026, 6, 2))]
-    assert sam_d2.status == "excused" and sam_d2.charged is False
+    assert sam_d2.status == "absent"
 
 
 def test_resync_preserves_admin_chase_state() -> None:

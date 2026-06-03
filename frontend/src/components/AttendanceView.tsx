@@ -53,8 +53,8 @@ export function AttendanceView({ token, shiftDate, today, history, weekly }: Att
                 <div className="att-row__main">
                   <strong>{record.person.display_name}</strong>
                   <span className="muted num">
-                    in {shortTime(record.check_in_at)} · out {shortTime(record.check_out_at)} ·{" "}
-                    {record.minutes_late}m late · {record.charge_amount_uzs.toLocaleString()} UZS
+                    in {shortTime(record.check_in_at)} · out {shortTime(record.check_out_at)}
+                    {record.minutes_late > 0 ? ` · ${record.minutes_late}m late` : ""}
                   </span>
                 </div>
                 <div className="att-row__status">
@@ -105,15 +105,15 @@ export function AttendanceView({ token, shiftDate, today, history, weekly }: Att
       </Card>
 
       <Card>
-        <SectionHeader title="Weekly lates" />
+        <SectionHeader title="Weekly lateness" />
         <BarChart
           data={weekly.map((row) => ({
             label: row.person.display_name,
-            value: row.lates,
-            value2: row.charged_count
+            value: row.late,
+            value2: row.late_15
           }))}
-          ariaLabel="Weekly lates and charged counts per person"
-          seriesLabels={["Lates", "Charged"]}
+          ariaLabel="Weekly late and 15+ late counts per person"
+          seriesLabels={["Late", "15+ Late"]}
         />
       </Card>
 
@@ -123,9 +123,8 @@ export function AttendanceView({ token, shiftDate, today, history, weekly }: Att
           {weekly.map((row) => (
             <div className="total-row" key={row.person.id}>
               <strong>{row.person.display_name}</strong>
-              <b className="num">{row.total_charge_uzs.toLocaleString()} UZS</b>
               <span className="muted">
-                {row.lates} late · {row.charged_count} charged
+                {row.late} late · {row.late_15} × 15+ · {row.no_show} no-show
               </span>
             </div>
           ))}

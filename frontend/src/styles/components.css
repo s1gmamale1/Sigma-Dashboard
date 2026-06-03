@@ -339,7 +339,7 @@
   border-radius: 50%;
   background: currentColor;
 }
-.pill-in,
+.pill-on_time,
 .pill-resolved,
 .pill-active,
 .pill-done {
@@ -353,14 +353,21 @@
   color: var(--warning);
   background: color-mix(in srgb, var(--warning) 16%, transparent);
 }
-.pill-charged,
-.pill-no_show,
+.pill-late_15,
 .pill-overdue {
   color: var(--danger);
   background: color-mix(in srgb, var(--danger) 14%, transparent);
 }
-.pill-missing {
+.pill-absent {
+  color: var(--teal);
+  background: color-mix(in srgb, var(--teal) 16%, transparent);
+}
+.pill-no_show {
   color: var(--label-secondary);
+  background: var(--fill);
+}
+.pill-missing {
+  color: var(--label-tertiary);
   background: var(--fill-2);
 }
 
