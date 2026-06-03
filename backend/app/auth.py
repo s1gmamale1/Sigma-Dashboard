@@ -1,13 +1,18 @@
 from datetime import datetime, timedelta, timezone
 
-from fastapi import Depends, Header, HTTPException, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi import Depends, HTTPException, status
+from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
 import bcrypt
 from jose import JWTError, jwt
 
 from .config import Settings, get_settings
 
-bearer_scheme = HTTPBearer(auto_error=False)
+bearer_scheme = HTTPBearer(auto_error=False, description="Admin JWT from POST /api/v1/auth/login")
+viper_scheme = APIKeyHeader(
+    name="X-Viper-Token",
+    auto_error=False,
+    description="Shared secret for the Viper ingest agent (SIGMA_VIPER_TOKEN).",
+)
 MAX_BCRYPT_PASSWORD_BYTES = 72
 
 
@@ -51,7 +56,7 @@ def require_admin(
 
 
 def require_viper(
-    x_viper_token: str | None = Header(default=None, alias="X-Viper-Token"),
+    x_viper_token: str | None = Depends(viper_scheme),
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     settings: Settings = Depends(get_settings),
 ) -> str:

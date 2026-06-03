@@ -13,7 +13,12 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Login */
+        /**
+         * Log in as admin
+         * @description Exchange an admin username + password for a bearer JWT.
+         *
+         *     Returns `data.access_token` (send it as `Authorization: Bearer <token>`) and `data.expires_at`.
+         */
         post: operations["login_api_v1_auth_login_post"];
         delete?: never;
         options?: never;
@@ -28,7 +33,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Dashboard Overview */
+        /**
+         * Dashboard overview
+         * @description Aggregated home view for a shift day: tonight's attendance, the weekly charge
+         *     summary, the count of missing reports, at-risk goals, and stale project topics.
+         */
         get: operations["dashboard_overview_api_v1_dashboard_overview_get"];
         put?: never;
         post?: never;
@@ -45,7 +54,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Today Attendance */
+        /**
+         * Tonight's attendance
+         * @description The attendance record for each person on the given shift day, ordered by roster.
+         */
         get: operations["get_today_attendance_api_v1_attendance_today_get"];
         put?: never;
         post?: never;
@@ -62,7 +74,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Attendance History */
+        /**
+         * Attendance history grid
+         * @description A rows=people × cols=days grid over `[from, to]`. Days with no record return a
+         *     `missing` cell, so every person has a full, gap-free row.
+         */
         get: operations["get_attendance_history_api_v1_attendance_history_get"];
         put?: never;
         post?: never;
@@ -79,7 +95,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Weekly Summary */
+        /**
+         * Weekly charge summary
+         * @description Per-person lates, charged count, and total charge (UZS) for the Mon–Sun week
+         *     beginning at `week_start`. `meta` echoes the resolved `week_start`/`week_end`.
+         */
         get: operations["get_weekly_summary_api_v1_attendance_weekly_summary_get"];
         put?: never;
         post?: never;
@@ -102,7 +122,11 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Patch Chase State */
+        /**
+         * Update chase state
+         * @description Set the chase state (`none` / `needs_chase` / `chased` / `resolved`) on one
+         *     attendance record and return the updated record.
+         */
         patch: operations["patch_chase_state_api_v1_attendance__record_id__chase_state_patch"];
         trace?: never;
     };
@@ -113,7 +137,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Daily Reports */
+        /**
+         * Daily reports
+         * @description Each person's report for the given day — summary, extras, rating (1–4), missing
+         *     flag, source topic, and their active assignments.
+         */
         get: operations["get_daily_reports_api_v1_reports_daily_get"];
         put?: never;
         post?: never;
@@ -130,7 +158,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Performance */
+        /**
+         * Performance roll-up
+         * @description Per-person performance over `[from, to]` — average rating, report completion rate (%),
+         *     missing days, and assignment count — sorted best-first (a leaderboard).
+         */
         get: operations["get_performance_api_v1_performance_get"];
         put?: never;
         post?: never;
@@ -147,7 +179,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Goals */
+        /**
+         * List goals
+         * @description All goals (status derived from deadline), each with owner, progress, deadline,
+         *     next nudge, and the latest progress-log entry. Optionally filter by `status`.
+         */
         get: operations["get_goals_api_v1_goals_get"];
         put?: never;
         post?: never;
@@ -164,7 +200,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Project Conditions */
+        /**
+         * Project conditions
+         * @description Current condition for each active project topic — rolling summary, last activity,
+         *     and open items.
+         */
         get: operations["get_project_conditions_api_v1_project_conditions_get"];
         put?: never;
         post?: never;
@@ -183,7 +223,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Viper Attendance */
+        /**
+         * Upsert attendance (Viper)
+         * @description Idempotent upsert of one person's attendance for a shift day (keyed on person + date).
+         *     The person is created on first sight. Charge/late policy is computed server-side.
+         */
         post: operations["viper_attendance_api_v1_viper_attendance_post"];
         delete?: never;
         options?: never;
@@ -200,7 +244,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Viper Report */
+        /**
+         * Upsert daily report (Viper)
+         * @description Idempotent upsert of one person's daily report (keyed on person + date). Returns the report id.
+         */
         post: operations["viper_report_api_v1_viper_report_post"];
         delete?: never;
         options?: never;
@@ -217,7 +264,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Viper Goal */
+        /**
+         * Upsert goal (Viper)
+         * @description Idempotent upsert of a goal (keyed on `slug`). `progress_log`, if present, is appended
+         *     as a timestamped log entry. Returns the resolved goal.
+         */
         post: operations["viper_goal_api_v1_viper_goal_post"];
         delete?: never;
         options?: never;
@@ -234,7 +285,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Viper Project Condition */
+        /**
+         * Upsert project condition (Viper)
+         * @description Idempotent upsert of a topic's rolling condition (keyed on `topic_id`) — summary,
+         *     last activity, and open items. Returns the resolved condition.
+         */
         post: operations["viper_project_condition_api_v1_viper_project_condition_post"];
         delete?: never;
         options?: never;
@@ -251,7 +306,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Sheets Sync Attendance */
+        /**
+         * Sync attendance to the sheet
+         * @description Push current attendance to the configured HR sheet and return the sync run's status.
+         */
         post: operations["sheets_sync_attendance_api_v1_sheets_sync_attendance_post"];
         delete?: never;
         options?: never;
@@ -266,7 +324,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Google Sheet Preview */
+        /**
+         * Preview the HR sheet
+         * @description Spreadsheet title and, per tab, its dimensions, sample range, and a few sample rows —
+         *     used to verify the Google Sheet wiring before importing.
+         */
         get: operations["google_sheet_preview_api_v1_google_sheet_preview_get"];
         put?: never;
         post?: never;
@@ -285,7 +347,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Google Sheet Import */
+        /**
+         * Import recognized tabs
+         * @description Import rows from tabs with recognizable canonical headers into the dashboard, returning
+         *     counts of imported rows and any skipped tabs.
+         */
         post: operations["google_sheet_import_api_v1_google_sheet_import_post"];
         delete?: never;
         options?: never;
@@ -297,18 +363,258 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** ChasePatchRequest */
-        ChasePatchRequest: {
+        /** AttendanceCell */
+        AttendanceCell: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Status */
+            status: ("in" | "late" | "charged" | "no_show" | "excused") | "missing";
+            /** Check In At */
+            check_in_at?: string | null;
+            /** Check Out At */
+            check_out_at?: string | null;
+            /**
+             * Charged
+             * @default false
+             */
+            charged: boolean;
+            /**
+             * Charge Amount Uzs
+             * @default 0
+             */
+            charge_amount_uzs: number;
+        };
+        /** AttendanceHistoryRow */
+        AttendanceHistoryRow: {
+            person: components["schemas"]["PersonOut"];
+            /** Cells */
+            cells: components["schemas"]["AttendanceCell"][];
+        };
+        /** AttendanceOut */
+        AttendanceOut: {
+            /** Id */
+            id: number;
+            person: components["schemas"]["PersonOut"];
+            /**
+             * Shift Date
+             * Format: date
+             */
+            shift_date: string;
+            /** Check In At */
+            check_in_at: string | null;
+            /** Check Out At */
+            check_out_at: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "in" | "late" | "charged" | "no_show" | "excused";
+            /** Minutes Late */
+            minutes_late: number;
+            /** Charged */
+            charged: boolean;
+            /** Charge Amount Uzs */
+            charge_amount_uzs: number;
+            /**
+             * Charge Reason
+             * @enum {string}
+             */
+            charge_reason: "none" | "late_after_grace" | "second_late_week" | "no_show" | "manual_policy";
             /**
              * Chase State
              * @enum {string}
              */
             chase_state: "none" | "needs_chase" | "chased" | "resolved";
+            /** Notes */
+            notes: string | null;
         };
-        /** Envelope */
+        /** ChasePatchRequest */
+        ChasePatchRequest: {
+            /**
+             * Chase State
+             * @example chased
+             * @enum {string}
+             */
+            chase_state: "none" | "needs_chase" | "chased" | "resolved";
+        };
+        /** DashboardOverview */
+        DashboardOverview: {
+            /** Today Attendance */
+            today_attendance: components["schemas"]["AttendanceOut"][];
+            /** Weekly Summary */
+            weekly_summary: components["schemas"]["WeeklySummaryRow"][];
+            /** Missing Reports Count */
+            missing_reports_count: number;
+            /** At Risk Goals */
+            at_risk_goals: components["schemas"]["GoalOut"][];
+            /** Stale Project Topics */
+            stale_project_topics: components["schemas"]["ProjectConditionOut"][];
+        };
+        /**
+         * Envelope
+         * @description Standard response envelope used by every endpoint.
+         *
+         *     On success, `data` holds the typed payload and `error` is `null`. On failure,
+         *     `data` is `null` and `error` carries a machine-readable `code` plus a `message`.
+         *     `meta` carries optional pagination/context (e.g. `week_start`, `week_end`).
+         */
         Envelope: {
             /** Data */
-            data?: unknown;
+            data?: unknown | null;
+            /** Meta */
+            meta?: {
+                [key: string]: unknown;
+            };
+            error?: components["schemas"]["ErrorBody"] | null;
+        };
+        /** Envelope[AttendanceOut] */
+        Envelope_AttendanceOut_: {
+            data?: components["schemas"]["AttendanceOut"] | null;
+            /** Meta */
+            meta?: {
+                [key: string]: unknown;
+            };
+            error?: components["schemas"]["ErrorBody"] | null;
+        };
+        /** Envelope[DashboardOverview] */
+        Envelope_DashboardOverview_: {
+            data?: components["schemas"]["DashboardOverview"] | null;
+            /** Meta */
+            meta?: {
+                [key: string]: unknown;
+            };
+            error?: components["schemas"]["ErrorBody"] | null;
+        };
+        /** Envelope[GoalOut] */
+        Envelope_GoalOut_: {
+            data?: components["schemas"]["GoalOut"] | null;
+            /** Meta */
+            meta?: {
+                [key: string]: unknown;
+            };
+            error?: components["schemas"]["ErrorBody"] | null;
+        };
+        /** Envelope[GoogleSheetImportResult] */
+        Envelope_GoogleSheetImportResult_: {
+            data?: components["schemas"]["GoogleSheetImportResult"] | null;
+            /** Meta */
+            meta?: {
+                [key: string]: unknown;
+            };
+            error?: components["schemas"]["ErrorBody"] | null;
+        };
+        /** Envelope[GoogleSheetPreview] */
+        Envelope_GoogleSheetPreview_: {
+            data?: components["schemas"]["GoogleSheetPreview"] | null;
+            /** Meta */
+            meta?: {
+                [key: string]: unknown;
+            };
+            error?: components["schemas"]["ErrorBody"] | null;
+        };
+        /** Envelope[IdResult] */
+        Envelope_IdResult_: {
+            data?: components["schemas"]["IdResult"] | null;
+            /** Meta */
+            meta?: {
+                [key: string]: unknown;
+            };
+            error?: components["schemas"]["ErrorBody"] | null;
+        };
+        /** Envelope[LoginResponse] */
+        Envelope_LoginResponse_: {
+            data?: components["schemas"]["LoginResponse"] | null;
+            /** Meta */
+            meta?: {
+                [key: string]: unknown;
+            };
+            error?: components["schemas"]["ErrorBody"] | null;
+        };
+        /** Envelope[ProjectConditionOut] */
+        Envelope_ProjectConditionOut_: {
+            data?: components["schemas"]["ProjectConditionOut"] | null;
+            /** Meta */
+            meta?: {
+                [key: string]: unknown;
+            };
+            error?: components["schemas"]["ErrorBody"] | null;
+        };
+        /** Envelope[SheetSyncResult] */
+        Envelope_SheetSyncResult_: {
+            data?: components["schemas"]["SheetSyncResult"] | null;
+            /** Meta */
+            meta?: {
+                [key: string]: unknown;
+            };
+            error?: components["schemas"]["ErrorBody"] | null;
+        };
+        /** Envelope[list[AttendanceHistoryRow]] */
+        Envelope_list_AttendanceHistoryRow__: {
+            /** Data */
+            data?: components["schemas"]["AttendanceHistoryRow"][] | null;
+            /** Meta */
+            meta?: {
+                [key: string]: unknown;
+            };
+            error?: components["schemas"]["ErrorBody"] | null;
+        };
+        /** Envelope[list[AttendanceOut]] */
+        Envelope_list_AttendanceOut__: {
+            /** Data */
+            data?: components["schemas"]["AttendanceOut"][] | null;
+            /** Meta */
+            meta?: {
+                [key: string]: unknown;
+            };
+            error?: components["schemas"]["ErrorBody"] | null;
+        };
+        /** Envelope[list[GoalOut]] */
+        Envelope_list_GoalOut__: {
+            /** Data */
+            data?: components["schemas"]["GoalOut"][] | null;
+            /** Meta */
+            meta?: {
+                [key: string]: unknown;
+            };
+            error?: components["schemas"]["ErrorBody"] | null;
+        };
+        /** Envelope[list[PerformanceRow]] */
+        Envelope_list_PerformanceRow__: {
+            /** Data */
+            data?: components["schemas"]["PerformanceRow"][] | null;
+            /** Meta */
+            meta?: {
+                [key: string]: unknown;
+            };
+            error?: components["schemas"]["ErrorBody"] | null;
+        };
+        /** Envelope[list[ProjectConditionOut]] */
+        Envelope_list_ProjectConditionOut__: {
+            /** Data */
+            data?: components["schemas"]["ProjectConditionOut"][] | null;
+            /** Meta */
+            meta?: {
+                [key: string]: unknown;
+            };
+            error?: components["schemas"]["ErrorBody"] | null;
+        };
+        /** Envelope[list[ReportOut]] */
+        Envelope_list_ReportOut__: {
+            /** Data */
+            data?: components["schemas"]["ReportOut"][] | null;
+            /** Meta */
+            meta?: {
+                [key: string]: unknown;
+            };
+            error?: components["schemas"]["ErrorBody"] | null;
+        };
+        /** Envelope[list[WeeklySummaryRow]] */
+        Envelope_list_WeeklySummaryRow__: {
+            /** Data */
+            data?: components["schemas"]["WeeklySummaryRow"][] | null;
             /** Meta */
             meta?: {
                 [key: string]: unknown;
@@ -326,17 +632,192 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** GoalOut */
+        GoalOut: {
+            /** Id */
+            id: number;
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            owner: components["schemas"]["PersonOut"] | null;
+            /** Topic Id */
+            topic_id: string | null;
+            /** Deadline */
+            deadline: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "overdue" | "done" | "paused";
+            /** Progress Percent */
+            progress_percent: number;
+            /** Last Update At */
+            last_update_at: string | null;
+            /** Next Nudge At */
+            next_nudge_at: string | null;
+            /** Latest Log */
+            latest_log: string | null;
+        };
+        /** GoogleSheetImportResult */
+        GoogleSheetImportResult: {
+            /** Spreadsheet Id */
+            spreadsheet_id: string;
+            /** Spreadsheet Title */
+            spreadsheet_title: string;
+            /** Imported */
+            imported: {
+                [key: string]: number;
+            };
+            /** Skipped Tabs */
+            skipped_tabs: string[];
+            /** Notes */
+            notes: string[];
+        };
+        /** GoogleSheetPreview */
+        GoogleSheetPreview: {
+            /** Spreadsheet Id */
+            spreadsheet_id: string;
+            /** Spreadsheet Title */
+            spreadsheet_title: string;
+            /** Configured Name */
+            configured_name: string;
+            /** Tabs */
+            tabs: components["schemas"]["GoogleSheetTabPreview"][];
+        };
+        /** GoogleSheetTabPreview */
+        GoogleSheetTabPreview: {
+            /** Title */
+            title: string;
+            /** Row Count */
+            row_count: number;
+            /** Column Count */
+            column_count: number;
+            /** Sample Range */
+            sample_range: string;
+            /** Values */
+            values: string[][];
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /**
+         * IdResult
+         * @description Minimal acknowledgement returned by write endpoints that only confirm an id.
+         */
+        IdResult: {
+            /** Id */
+            id: number;
+        };
         /** LoginRequest */
         LoginRequest: {
-            /** Username */
+            /**
+             * Username
+             * @example admin
+             */
             username: string;
-            /** Password */
+            /**
+             * Password
+             * @example your-admin-password
+             */
             password: string;
+        };
+        /** LoginResponse */
+        LoginResponse: {
+            /** Access Token */
+            access_token: string;
+            /**
+             * Token Type
+             * @default bearer
+             * @constant
+             */
+            token_type: "bearer";
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+        };
+        /** PerformanceRow */
+        PerformanceRow: {
+            person: components["schemas"]["PersonOut"];
+            /** Average Rating */
+            average_rating: number | null;
+            /** Report Completion Rate */
+            report_completion_rate: number;
+            /** Missing Days */
+            missing_days: number;
+            /** Assignment Count */
+            assignment_count: number;
+        };
+        /** PersonOut */
+        PersonOut: {
+            /** Id */
+            id: number;
+            /** Slug */
+            slug: string;
+            /** Display Name */
+            display_name: string;
+            /** Active */
+            active: boolean;
+            /** Sort Order */
+            sort_order: number;
+        };
+        /** ProjectConditionOut */
+        ProjectConditionOut: {
+            /** Topic Id */
+            topic_id: string;
+            /** Title */
+            title: string | null;
+            /** Summary */
+            summary: string | null;
+            /** Last Activity At */
+            last_activity_at: string | null;
+            /** Open Items */
+            open_items: string[];
+            /** Updated At */
+            updated_at: string | null;
+        };
+        /** ReportOut */
+        ReportOut: {
+            /** Id */
+            id: number;
+            person: components["schemas"]["PersonOut"];
+            /**
+             * Report Date
+             * Format: date
+             */
+            report_date: string;
+            /** Summary */
+            summary: string;
+            /** Extras */
+            extras: string | null;
+            /** Rating */
+            rating: number | null;
+            /** Missing */
+            missing: boolean;
+            /** Source Topic */
+            source_topic: string | null;
+            /** Assignments */
+            assignments?: string[];
+        };
+        /**
+         * SheetSyncResult
+         * @description Outcome of a Google Sheet attendance sync run.
+         */
+        SheetSyncResult: {
+            /** Id */
+            id: number;
+            /** Status */
+            status: string;
+            /** Started At */
+            started_at?: string | null;
+            /** Finished At */
+            finished_at?: string | null;
+            /** Error Message */
+            error_message?: string | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -353,13 +834,20 @@ export interface components {
             /**
              * Shift Date
              * Format: date
+             * @example 2026-06-03
              */
             shift_date: string;
-            /** Check In At */
+            /**
+             * Check In At
+             * @example 2026-06-03T18:02:00+05:00
+             */
             check_in_at?: string | null;
             /** Check Out At */
             check_out_at?: string | null;
-            /** Status */
+            /**
+             * Status
+             * @example late
+             */
             status?: ("in" | "late" | "charged" | "no_show" | "excused") | null;
             /**
              * Chase State
@@ -440,6 +928,18 @@ export interface components {
             /** Source Topic */
             source_topic?: string | null;
         };
+        /** WeeklySummaryRow */
+        WeeklySummaryRow: {
+            person: components["schemas"]["PersonOut"];
+            /** Lates */
+            lates: number;
+            /** Free Late Used */
+            free_late_used: boolean;
+            /** Charged Count */
+            charged_count: number;
+            /** Total Charge Uzs */
+            total_charge_uzs: number;
+        };
     };
     responses: never;
     parameters: never;
@@ -468,6 +968,15 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    "application/json": components["schemas"]["Envelope_LoginResponse_"];
+                };
+            };
+            /** @description Missing or invalid admin bearer token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
                     "application/json": components["schemas"]["Envelope"];
                 };
             };
@@ -485,6 +994,7 @@ export interface operations {
     dashboard_overview_api_v1_dashboard_overview_get: {
         parameters: {
             query?: {
+                /** @description Shift day (YYYY-MM-DD); defaults to today. */
                 shift_date?: string | null;
             };
             header?: never;
@@ -495,6 +1005,15 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_DashboardOverview_"];
+                };
+            };
+            /** @description Missing or invalid admin bearer token. */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -516,6 +1035,7 @@ export interface operations {
     get_today_attendance_api_v1_attendance_today_get: {
         parameters: {
             query?: {
+                /** @description Shift day (YYYY-MM-DD); defaults to today. */
                 shift_date?: string | null;
             };
             header?: never;
@@ -526,6 +1046,15 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_list_AttendanceOut__"];
+                };
+            };
+            /** @description Missing or invalid admin bearer token. */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -547,7 +1076,9 @@ export interface operations {
     get_attendance_history_api_v1_attendance_history_get: {
         parameters: {
             query: {
+                /** @description Inclusive start day (YYYY-MM-DD). */
                 from: string;
+                /** @description Inclusive end day (YYYY-MM-DD). */
                 to: string;
             };
             header?: never;
@@ -562,16 +1093,25 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    "application/json": components["schemas"]["Envelope_list_AttendanceHistoryRow__"];
+                };
+            };
+            /** @description Missing or invalid admin bearer token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
                     "application/json": components["schemas"]["Envelope"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Invalid query parameters (e.g. `to` before `from`). */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["Envelope"];
                 };
             };
         };
@@ -579,6 +1119,7 @@ export interface operations {
     get_weekly_summary_api_v1_attendance_weekly_summary_get: {
         parameters: {
             query: {
+                /** @description Monday of the target week (YYYY-MM-DD). */
                 week_start: string;
             };
             header?: never;
@@ -589,6 +1130,15 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_list_WeeklySummaryRow__"];
+                };
+            };
+            /** @description Missing or invalid admin bearer token. */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -628,6 +1178,24 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    "application/json": components["schemas"]["Envelope_AttendanceOut_"];
+                };
+            };
+            /** @description Missing or invalid admin bearer token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            /** @description Resource not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
                     "application/json": components["schemas"]["Envelope"];
                 };
             };
@@ -645,6 +1213,7 @@ export interface operations {
     get_daily_reports_api_v1_reports_daily_get: {
         parameters: {
             query: {
+                /** @description Report day (YYYY-MM-DD). */
                 date: string;
             };
             header?: never;
@@ -655,6 +1224,15 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_list_ReportOut__"];
+                };
+            };
+            /** @description Missing or invalid admin bearer token. */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -676,7 +1254,9 @@ export interface operations {
     get_performance_api_v1_performance_get: {
         parameters: {
             query: {
+                /** @description Inclusive start day (YYYY-MM-DD). */
                 from: string;
+                /** @description Inclusive end day (YYYY-MM-DD). */
                 to: string;
             };
             header?: never;
@@ -687,6 +1267,15 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_list_PerformanceRow__"];
+                };
+            };
+            /** @description Missing or invalid admin bearer token. */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -708,6 +1297,7 @@ export interface operations {
     get_goals_api_v1_goals_get: {
         parameters: {
             query?: {
+                /** @description Optional filter: active | overdue | done | paused. */
                 status?: string | null;
             };
             header?: never;
@@ -718,6 +1308,15 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_list_GoalOut__"];
+                };
+            };
+            /** @description Missing or invalid admin bearer token. */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -751,6 +1350,15 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    "application/json": components["schemas"]["Envelope_list_ProjectConditionOut__"];
+                };
+            };
+            /** @description Missing or invalid admin bearer token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
                     "application/json": components["schemas"]["Envelope"];
                 };
             };
@@ -759,9 +1367,7 @@ export interface operations {
     viper_attendance_api_v1_viper_attendance_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-Viper-Token"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -773,6 +1379,15 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_AttendanceOut_"];
+                };
+            };
+            /** @description Missing or invalid `X-Viper-Token`. */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -794,9 +1409,7 @@ export interface operations {
     viper_report_api_v1_viper_report_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-Viper-Token"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -808,6 +1421,15 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_IdResult_"];
+                };
+            };
+            /** @description Missing or invalid `X-Viper-Token`. */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -829,9 +1451,7 @@ export interface operations {
     viper_goal_api_v1_viper_goal_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-Viper-Token"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -843,6 +1463,15 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_GoalOut_"];
+                };
+            };
+            /** @description Missing or invalid `X-Viper-Token`. */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -864,9 +1493,7 @@ export interface operations {
     viper_project_condition_api_v1_viper_project_condition_post: {
         parameters: {
             query?: never;
-            header?: {
-                "X-Viper-Token"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -878,6 +1505,15 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_ProjectConditionOut_"];
+                };
+            };
+            /** @description Missing or invalid `X-Viper-Token`. */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -911,6 +1547,15 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    "application/json": components["schemas"]["Envelope_SheetSyncResult_"];
+                };
+            };
+            /** @description Missing or invalid admin bearer token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
                     "application/json": components["schemas"]["Envelope"];
                 };
             };
@@ -919,6 +1564,7 @@ export interface operations {
     google_sheet_preview_api_v1_google_sheet_preview_get: {
         parameters: {
             query?: {
+                /** @description Rows to sample per tab (1–25). */
                 sample_rows?: number;
             };
             header?: never;
@@ -929,6 +1575,24 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_GoogleSheetPreview_"];
+                };
+            };
+            /** @description Google Sheet could not be read or imported. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            /** @description Missing or invalid admin bearer token. */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -958,6 +1622,24 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_GoogleSheetImportResult_"];
+                };
+            };
+            /** @description Google Sheet could not be read or imported. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            /** @description Missing or invalid admin bearer token. */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from typing import Any, Literal
+from typing import Any, Generic, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -19,15 +19,41 @@ class ErrorBody(StrictModel):
     details: dict[str, Any] = Field(default_factory=dict)
 
 
-class Envelope(StrictModel):
-    data: Any = None
+DataT = TypeVar("DataT")
+
+
+class Envelope(StrictModel, Generic[DataT]):
+    """Standard response envelope used by every endpoint.
+
+    On success, `data` holds the typed payload and `error` is `null`. On failure,
+    `data` is `null` and `error` carries a machine-readable `code` plus a `message`.
+    `meta` carries optional pagination/context (e.g. `week_start`, `week_end`).
+    """
+
+    data: DataT | None = None
     meta: dict[str, Any] = Field(default_factory=dict)
     error: ErrorBody | None = None
 
 
+class IdResult(StrictModel):
+    """Minimal acknowledgement returned by write endpoints that only confirm an id."""
+
+    id: int
+
+
+class SheetSyncResult(StrictModel):
+    """Outcome of a Google Sheet attendance sync run."""
+
+    id: int
+    status: str
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    error_message: str | None = None
+
+
 class LoginRequest(StrictModel):
-    username: str = Field(min_length=1, max_length=120)
-    password: str = Field(min_length=1, max_length=300)
+    username: str = Field(min_length=1, max_length=120, examples=["admin"])
+    password: str = Field(min_length=1, max_length=300, examples=["your-admin-password"])
 
 
 class LoginResponse(StrictModel):
@@ -82,7 +108,7 @@ class WeeklySummaryRow(StrictModel):
 
 
 class ChasePatchRequest(StrictModel):
-    chase_state: ChaseState
+    chase_state: ChaseState = Field(examples=["chased"])
 
 
 class ViperPersonRef(StrictModel):
@@ -92,10 +118,10 @@ class ViperPersonRef(StrictModel):
 
 class ViperAttendanceUpsert(StrictModel):
     person: ViperPersonRef
-    shift_date: date
-    check_in_at: datetime | None = None
+    shift_date: date = Field(examples=["2026-06-03"])
+    check_in_at: datetime | None = Field(default=None, examples=["2026-06-03T18:02:00+05:00"])
     check_out_at: datetime | None = None
-    status: AttendanceStatus | None = None
+    status: AttendanceStatus | None = Field(default=None, examples=["late"])
     chase_state: ChaseState = "none"
     notes: str | None = None
 

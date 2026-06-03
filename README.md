@@ -35,6 +35,14 @@ cd frontend && npm run build && cd ..
 uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
 ```
 
+## API
+
+All endpoints live under `/api/v1` and return a standard `{data, meta, error}` envelope with
+two auth schemes (admin bearer JWT + the Viper `X-Viper-Token`). Interactive docs are at `/docs`
+(Swagger) and `/redoc`; a quick reference with auth flow + curl examples is in
+[`docs/API.md`](docs/API.md). Regenerate the OpenAPI spec (and the frontend's typed copy) with
+`python scripts/export_openapi.py`.
+
 ## Google Sheets
 
 Set these in `.env`:

@@ -13,6 +13,40 @@ from .routes import router
 from .schemas import Envelope, ErrorBody
 
 
+API_DESCRIPTION = """\
+The internal API behind the **Sigma Dashboard** — attendance, daily reports &
+performance, goals, and project condition for the Viper-tracked team.
+
+### Conventions
+- **Base path:** every endpoint lives under `/api/v1`.
+- **Envelope:** every response is `{ "data": <payload|null>, "meta": {…}, "error": <null|{code,message,details}> }`.
+  On success `error` is `null`; on failure `data` is `null` and the HTTP status is non-2xx.
+- **Time:** datetimes are ISO-8601 with offset; dates are `YYYY-MM-DD` (the shift day, Asia/Tashkent).
+
+### Authentication
+Two schemes (see the **Authorize** button):
+- **AdminBearer** — `POST /auth/login` returns an `access_token`; send it as
+  `Authorization: Bearer <token>` on every read/admin endpoint. Tokens expire (default 8h).
+- **ViperToken** — the ingest agent writes via `/viper/*` using the shared `X-Viper-Token`
+  header (a bearer of the same secret also works).
+
+### Errors
+`401` missing/invalid credentials · `403` wrong subject · `404` not found ·
+`422` validation (details in `error.details.errors`). All errors use the envelope above.
+"""
+
+OPENAPI_TAGS = [
+    {"name": "Auth", "description": "Obtain an admin session token."},
+    {"name": "Dashboard", "description": "Aggregated home view for a shift day."},
+    {"name": "Attendance", "description": "Tonight's shift, history grid, weekly charge summary, and chase state."},
+    {"name": "Reports", "description": "Daily reports and the performance roll-up."},
+    {"name": "Goals", "description": "Active goals and at-risk goals."},
+    {"name": "Projects", "description": "Per-topic project condition."},
+    {"name": "Viper ingest", "description": "Write API used by the Viper agent (authenticated with `X-Viper-Token`)."},
+    {"name": "Google Sheets", "description": "Preview, import, and sync the HR attendance spreadsheet."},
+]
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     init_db()
@@ -30,7 +64,17 @@ def error_response(status_code: int, code: str, message: str, details: dict | No
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    app = FastAPI(title=settings.app_name, version="1.0.0", lifespan=lifespan)
+    app = FastAPI(
+        title=settings.app_name,
+        version="1.0.0",
+        summary="Internal ops dashboard API for the Viper-tracked team.",
+        description=API_DESCRIPTION,
+        openapi_tags=OPENAPI_TAGS,
+        contact={"name": "Sigma Dashboard (internal)"},
+        license_info={"name": "Proprietary — internal use only"},
+        lifespan=lifespan,
+        swagger_ui_parameters={"defaultModelsExpandDepth": 2, "displayRequestDuration": True},
+    )
 
     @app.exception_handler(HTTPException)
     async def http_exception_handler(_: Request, exc: HTTPException) -> JSONResponse:
