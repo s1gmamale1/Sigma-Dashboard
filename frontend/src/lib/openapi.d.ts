@@ -35,7 +35,7 @@ export interface paths {
         };
         /**
          * Dashboard overview
-         * @description Aggregated home view for a shift day: tonight's attendance, the weekly charge
+         * @description Aggregated home view for a shift day: tonight's attendance, the weekly lateness
          *     summary, the count of missing reports, at-risk goals, and stale project topics.
          */
         get: operations["dashboard_overview_api_v1_dashboard_overview_get"];
@@ -160,11 +160,96 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Performance roll-up
-         * @description Per-person performance over `[from, to]` — average rating, report completion rate (%),
-         *     missing days, and assignment count — sorted best-first (a leaderboard).
+         * Performance leaderboard
+         * @description Per-person performance over `[from, to]`, best→worst: WHAT (avg rating + trend, completion %,
+         *     accomplishment) + HOW (avg check-in/out, status counts, compensation, avg hours, punctuality) +
+         *     the output-anchored **composite grade** (attendance penalises; latest feedback adjusts ±1 band).
+         *     Completion % is over Mon–Sat work-days.
          */
         get: operations["get_performance_api_v1_performance_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/viper/evaluation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upsert weekly evaluation (Viper)
+         * @description Idempotent upsert of a person's holistic WHAT/HOW/WHY evaluation for a period (keyed on
+         *     person + period_start + period_end). Produced weekly by Viper's performance-evaluation skill.
+         */
+        post: operations["viper_evaluation_api_v1_viper_evaluation_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/evaluations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Evaluations in a window
+         * @description Evaluations whose period overlaps `[from, to]`, newest period first (latest per person is the
+         *     one the Performance tab shows under WHY).
+         */
+        get: operations["get_evaluations_api_v1_evaluations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/viper/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add feedback note (Viper)
+         * @description Append a feedback note for a person (Abdul's judgment, logged as spoken). `grade_adjustment`
+         *     (-1/0/+1) lets the most recent feedback in a window nudge the composite grade by a band.
+         */
+        post: operations["viper_feedback_api_v1_viper_feedback_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Feedback in a window
+         * @description Feedback notes dated within `[from, to]`, newest first — the per-person timeline under WHY.
+         */
+        get: operations["get_feedback_api_v1_feedback_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -203,13 +288,99 @@ export interface paths {
         };
         /**
          * Project conditions
-         * @description Current condition for each active project topic — rolling summary, last activity,
-         *     and open items.
+         * @description Condition for each project topic — rolling summary, last activity, the open task
+         *     checklist, and the recent log timeline. Active projects only by default; pass
+         *     `include_archived=true` to also return archived ones (so they can be restored).
          */
         get: operations["get_project_conditions_api_v1_project_conditions_get"];
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a project
+         * @description Create a new project topic and its condition. `topic_id` is auto-generated when omitted.
+         */
+        post: operations["create_project_endpoint_api_v1_projects_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{topic_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a project
+         * @description Permanently remove a project, its condition, and its logs. Referencing goals are detached.
+         */
+        delete: operations["delete_project_endpoint_api_v1_projects__topic_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a project
+         * @description Patch a project's title, summary, task checklist, or active (archive) flag. Omitted
+         *     fields are left unchanged; archive sets `active=false` (hides it from the board).
+         */
+        patch: operations["update_project_endpoint_api_v1_projects__topic_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/projects/{topic_id}/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a project log entry
+         * @description Append a timestamped log entry and bump the project's last activity. Returns the full project.
+         */
+        post: operations["add_project_log_endpoint_api_v1_projects__topic_id__logs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{topic_id}/logs/{log_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a project log entry
+         * @description Remove a single log entry from a project. Returns the full project.
+         */
+        delete: operations["delete_project_log_endpoint_api_v1_projects__topic_id__logs__log_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -227,7 +398,7 @@ export interface paths {
         /**
          * Upsert attendance (Viper)
          * @description Idempotent upsert of one person's attendance for a shift day (keyed on person + date).
-         *     The person is created on first sight. Charge/late policy is computed server-side.
+         *     The person is created on first sight. The attendance status is derived server-side.
          */
         post: operations["viper_attendance_api_v1_viper_attendance_post"];
         delete?: never;
@@ -491,6 +662,24 @@ export interface components {
             };
             error?: components["schemas"]["ErrorBody"] | null;
         };
+        /** Envelope[EvaluationOut] */
+        Envelope_EvaluationOut_: {
+            data?: components["schemas"]["EvaluationOut"] | null;
+            /** Meta */
+            meta?: {
+                [key: string]: unknown;
+            };
+            error?: components["schemas"]["ErrorBody"] | null;
+        };
+        /** Envelope[FeedbackOut] */
+        Envelope_FeedbackOut_: {
+            data?: components["schemas"]["FeedbackOut"] | null;
+            /** Meta */
+            meta?: {
+                [key: string]: unknown;
+            };
+            error?: components["schemas"]["ErrorBody"] | null;
+        };
         /** Envelope[GoalOut] */
         Envelope_GoalOut_: {
             data?: components["schemas"]["GoalOut"] | null;
@@ -545,6 +734,15 @@ export interface components {
             };
             error?: components["schemas"]["ErrorBody"] | null;
         };
+        /** Envelope[ProjectDeleted] */
+        Envelope_ProjectDeleted_: {
+            data?: components["schemas"]["ProjectDeleted"] | null;
+            /** Meta */
+            meta?: {
+                [key: string]: unknown;
+            };
+            error?: components["schemas"]["ErrorBody"] | null;
+        };
         /** Envelope[SheetSyncResult] */
         Envelope_SheetSyncResult_: {
             data?: components["schemas"]["SheetSyncResult"] | null;
@@ -568,6 +766,26 @@ export interface components {
         Envelope_list_AttendanceOut__: {
             /** Data */
             data?: components["schemas"]["AttendanceOut"][] | null;
+            /** Meta */
+            meta?: {
+                [key: string]: unknown;
+            };
+            error?: components["schemas"]["ErrorBody"] | null;
+        };
+        /** Envelope[list[EvaluationOut]] */
+        Envelope_list_EvaluationOut__: {
+            /** Data */
+            data?: components["schemas"]["EvaluationOut"][] | null;
+            /** Meta */
+            meta?: {
+                [key: string]: unknown;
+            };
+            error?: components["schemas"]["ErrorBody"] | null;
+        };
+        /** Envelope[list[FeedbackOut]] */
+        Envelope_list_FeedbackOut__: {
+            /** Data */
+            data?: components["schemas"]["FeedbackOut"][] | null;
             /** Meta */
             meta?: {
                 [key: string]: unknown;
@@ -634,6 +852,56 @@ export interface components {
             details?: {
                 [key: string]: unknown;
             };
+        };
+        /** EvaluationOut */
+        EvaluationOut: {
+            /** Id */
+            id: number;
+            person: components["schemas"]["PersonOut"];
+            /**
+             * Period Start
+             * Format: date
+             */
+            period_start: string;
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+            /** Grade */
+            grade: string;
+            /** What */
+            what: string;
+            /** How */
+            how: string;
+            /** Why */
+            why: string;
+            /** Composite Score */
+            composite_score: number | null;
+            /** Updated At */
+            updated_at: string | null;
+        };
+        /** FeedbackOut */
+        FeedbackOut: {
+            /** Id */
+            id: number;
+            person: components["schemas"]["PersonOut"];
+            /**
+             * Feedback Date
+             * Format: date
+             */
+            feedback_date: string;
+            /** Note */
+            note: string;
+            /** Source */
+            source: string | null;
+            /** Grade Adjustment */
+            grade_adjustment: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
         };
         /** GoalOut */
         GoalOut: {
@@ -754,6 +1022,66 @@ export interface components {
             missing_days: number;
             /** Assignment Count */
             assignment_count: number;
+            /** Top Accomplishment */
+            top_accomplishment?: string | null;
+            /** Rating Trend */
+            rating_trend?: components["schemas"]["RatingPoint"][];
+            /** Avg Check In */
+            avg_check_in?: string | null;
+            /** Avg Check Out */
+            avg_check_out?: string | null;
+            /**
+             * On Time Count
+             * @default 0
+             */
+            on_time_count: number;
+            /**
+             * Late Count
+             * @default 0
+             */
+            late_count: number;
+            /**
+             * Late15 Count
+             * @default 0
+             */
+            late15_count: number;
+            /**
+             * No Show Count
+             * @default 0
+             */
+            no_show_count: number;
+            /**
+             * Absent Count
+             * @default 0
+             */
+            absent_count: number;
+            /**
+             * Attendance Days
+             * @default 0
+             */
+            attendance_days: number;
+            /**
+             * Punctuality Rate
+             * @default 0
+             */
+            punctuality_rate: number;
+            /**
+             * Compensates
+             * @default false
+             */
+            compensates: boolean;
+            /** Avg Hours */
+            avg_hours?: number | null;
+            /**
+             * Composite Grade
+             * @default Under
+             */
+            composite_grade: string;
+            /**
+             * Composite Score
+             * @default 0
+             */
+            composite_score: number;
         };
         /** PersonOut */
         PersonOut: {
@@ -779,9 +1107,89 @@ export interface components {
             /** Last Activity At */
             last_activity_at: string | null;
             /** Open Items */
-            open_items: string[];
+            open_items: components["schemas"]["ProjectTask"][];
+            /** Logs */
+            logs?: components["schemas"]["ProjectLogOut"][];
+            /**
+             * Active
+             * @default true
+             */
+            active: boolean;
             /** Updated At */
             updated_at: string | null;
+        };
+        /**
+         * ProjectCreate
+         * @description Admin: create a new project. `topic_id` is auto-generated when omitted.
+         */
+        ProjectCreate: {
+            /** Title */
+            title: string;
+            /** Topic Id */
+            topic_id?: string | null;
+            /** Summary */
+            summary?: string | null;
+            /** Open Items */
+            open_items?: components["schemas"]["ProjectTask"][];
+        };
+        /** ProjectDeleted */
+        ProjectDeleted: {
+            /** Topic Id */
+            topic_id: string;
+        };
+        /** ProjectLogCreate */
+        ProjectLogCreate: {
+            /** Body */
+            body: string;
+        };
+        /** ProjectLogOut */
+        ProjectLogOut: {
+            /** Id */
+            id: number;
+            /** Body */
+            body: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /**
+         * ProjectTask
+         * @description A single checklist item for a project. `done` toggles completion.
+         */
+        ProjectTask: {
+            /** Text */
+            text: string;
+            /**
+             * Done
+             * @default false
+             */
+            done: boolean;
+        };
+        /**
+         * ProjectUpdate
+         * @description Admin: patch a project. Every field is optional; omitted fields are left unchanged.
+         */
+        ProjectUpdate: {
+            /** Title */
+            title?: string | null;
+            /** Summary */
+            summary?: string | null;
+            /** Open Items */
+            open_items?: components["schemas"]["ProjectTask"][] | null;
+            /** Active */
+            active?: boolean | null;
+        };
+        /** RatingPoint */
+        RatingPoint: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Rating */
+            rating: number;
         };
         /** ReportOut */
         ReportOut: {
@@ -860,6 +1268,57 @@ export interface components {
             chase_state: "none" | "needs_chase" | "chased" | "resolved";
             /** Notes */
             notes?: string | null;
+        };
+        /** ViperEvaluationUpsert */
+        ViperEvaluationUpsert: {
+            person: components["schemas"]["ViperPersonRef"];
+            /**
+             * Period Start
+             * Format: date
+             */
+            period_start: string;
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+            /** Grade */
+            grade: string;
+            /**
+             * What
+             * @default
+             */
+            what: string;
+            /**
+             * How
+             * @default
+             */
+            how: string;
+            /**
+             * Why
+             * @default
+             */
+            why: string;
+            /** Composite Score */
+            composite_score?: number | null;
+        };
+        /** ViperFeedbackUpsert */
+        ViperFeedbackUpsert: {
+            person: components["schemas"]["ViperPersonRef"];
+            /**
+             * Feedback Date
+             * Format: date
+             */
+            feedback_date: string;
+            /** Note */
+            note: string;
+            /** Source */
+            source?: string | null;
+            /**
+             * Grade Adjustment
+             * @default 0
+             */
+            grade_adjustment: number;
         };
         /** ViperGoalUpsert */
         ViperGoalUpsert: {
@@ -1299,6 +1758,176 @@ export interface operations {
             };
         };
     };
+    viper_evaluation_api_v1_viper_evaluation_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ViperEvaluationUpsert"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_EvaluationOut_"];
+                };
+            };
+            /** @description Missing or invalid `X-Viper-Token`. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_evaluations_api_v1_evaluations_get: {
+        parameters: {
+            query: {
+                /** @description Inclusive start day (YYYY-MM-DD). */
+                from: string;
+                /** @description Inclusive end day (YYYY-MM-DD). */
+                to: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_list_EvaluationOut__"];
+                };
+            };
+            /** @description Missing or invalid admin bearer token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    viper_feedback_api_v1_viper_feedback_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ViperFeedbackUpsert"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_FeedbackOut_"];
+                };
+            };
+            /** @description Missing or invalid `X-Viper-Token`. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_feedback_api_v1_feedback_get: {
+        parameters: {
+            query: {
+                /** @description Inclusive start day (YYYY-MM-DD). */
+                from: string;
+                /** @description Inclusive end day (YYYY-MM-DD). */
+                to: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_list_FeedbackOut__"];
+                };
+            };
+            /** @description Missing or invalid admin bearer token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_goals_api_v1_goals_get: {
         parameters: {
             query?: {
@@ -1342,7 +1971,10 @@ export interface operations {
     };
     get_project_conditions_api_v1_project_conditions_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Include archived (active=false) projects. */
+                include_archived?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -1365,6 +1997,271 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_project_endpoint_api_v1_projects_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_ProjectConditionOut_"];
+                };
+            };
+            /** @description Missing or invalid admin bearer token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            /** @description A project with that topic_id already exists. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_project_endpoint_api_v1_projects__topic_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                topic_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_ProjectDeleted_"];
+                };
+            };
+            /** @description Missing or invalid admin bearer token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            /** @description Resource not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_project_endpoint_api_v1_projects__topic_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                topic_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_ProjectConditionOut_"];
+                };
+            };
+            /** @description Missing or invalid admin bearer token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            /** @description Resource not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_project_log_endpoint_api_v1_projects__topic_id__logs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                topic_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProjectLogCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_ProjectConditionOut_"];
+                };
+            };
+            /** @description Missing or invalid admin bearer token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            /** @description Resource not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_project_log_endpoint_api_v1_projects__topic_id__logs__log_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                topic_id: string;
+                log_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_ProjectConditionOut_"];
+                };
+            };
+            /** @description Missing or invalid admin bearer token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            /** @description Resource not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

@@ -1,7 +1,29 @@
 # Sigma Dashboard
 
-Internal FastAPI + React dashboard for Viper-tracked attendance, reports,
-goals, and project condition.
+Internal FastAPI + React dashboard for Viper-tracked attendance, daily reports,
+performance (What/How/Why), goals, and project condition.
+
+## Dashboard
+
+Seven tabs (`frontend/src/App.tsx`):
+
+- **Overview** — shift-day roll-up: tonight's attendance, weekly lateness, missing reports,
+  at-risk goals, stale project topics.
+- **Attendance** — tonight's roster with check-in **and check-out** times and minutes-late, a
+  person × day history grid (each cell shows in/out), the weekly lateness chart, and per-record
+  chase state.
+- **Reports** — each person's daily report (summary, extras, 1–4 rating, missing flag).
+- **Performance** — a best→worst **What / How / Why** leaderboard over a Week / Month / Custom
+  range: composite grade, rating-trend sparkline, attendance counts, punctuality, average hours,
+  the latest evaluation narrative, and feedback notes.
+- **Goals** — goals with owner, progress, deadline-derived status, and the latest log entry.
+- **Projects** — per-topic project condition; admins can **create, edit, archive/restore, and
+  delete** projects and edit titles, summaries, task checklists, and log timelines.
+- **Sheets** — preview and import of the HR spreadsheet.
+
+The team works a fixed **18:00 → 03:00** night shift (crosses midnight); attendance has five
+statuses — `on_time`, `late`, `late_15`, `no_show`, `absent` — and lateness, overtime, and
+average in/out times are measured as offsets from that scheduled window. There is no charge concept.
 
 ## Design
 
@@ -18,7 +40,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cd frontend && npm install && cd ..
-uvicorn backend.app.main:app --reload
+python -m uvicorn backend.app.main:app --reload
 ```
 
 Frontend dev server:
@@ -32,7 +54,7 @@ npm run dev
 
 ```bash
 cd frontend && npm run build && cd ..
-uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
+python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
 ```
 
 ## API
@@ -40,8 +62,9 @@ uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
 All endpoints live under `/api/v1` and return a standard `{data, meta, error}` envelope with
 two auth schemes (admin bearer JWT + the Viper `X-Viper-Token`). Interactive docs are at `/docs`
 (Swagger) and `/redoc`; a quick reference with auth flow + curl examples is in
-[`docs/API.md`](docs/API.md). Regenerate the OpenAPI spec (and the frontend's typed copy) with
-`python scripts/export_openapi.py`.
+[`docs/API.md`](docs/API.md). Regenerate the OpenAPI spec **and** the frontend's typed copy
+(`openapi.json` + `openapi.d.ts`) with `cd frontend && npm run generate:api` — running
+`export_openapi.py` alone refreshes the JSON but leaves the typed `.d.ts` stale.
 
 ## Google Sheets
 
