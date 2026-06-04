@@ -50,7 +50,9 @@ export function Shell({
             {title}
           </strong>
         </div>
-        <SegmentedControl items={tabs} value={active} onChange={onActive} ariaLabel="Dashboard views" panelId="view-panel" />
+        <div className="topbar__nav">
+          <SegmentedControl items={tabs} value={active} onChange={onActive} ariaLabel="Dashboard views" panelId="view-panel" />
+        </div>
         <div className="topbar__actions">
           <button className="today-button" onClick={() => onDate(isoDate())}>
             Today

@@ -60,6 +60,10 @@
   --sp-6: 32px;
   --sp-8: 48px;
 
+  /* Layout — shared so the floating topbar and the content column stay edge-aligned */
+  --app-max-w: 1320px;
+  --app-gutter: var(--sp-6);
+
   /* Radius */
   --r-card: 18px;
   --r-control: 12px;

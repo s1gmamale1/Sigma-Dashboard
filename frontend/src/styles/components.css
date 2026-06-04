@@ -22,12 +22,15 @@
   top: var(--sp-3);
   z-index: 20;
   margin: var(--sp-3) auto 0;
-  width: min(1200px, calc(100% - var(--sp-8)));
+  width: min(var(--app-max-w), calc(100% - var(--app-gutter)));
   display: grid;
-  grid-template-columns: minmax(160px, 1fr) auto 1fr;
+  /* Brand and actions size to their content; the nav owns the middle and may
+     shrink (min-width:0 on .topbar__nav) so it can never push the actions past
+     the pill edge. Bare 1fr tracks are minmax(auto,1fr) and would overflow. */
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: var(--sp-4);
-  padding: var(--sp-2) var(--sp-3);
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-4);
   border-radius: var(--r-pill);
 }
 .topbar__brand {
@@ -63,6 +66,18 @@
 }
 .topbar.is-collapsed .brand-collapsed {
   opacity: 1;
+}
+/* Center nav — owns the flexible middle column; centers when it fits, and
+   scrolls (scrollbar hidden) instead of clipping the actions if it ever can't. */
+.topbar__nav {
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.topbar__nav::-webkit-scrollbar {
+  display: none;
 }
 .today-button {
   min-height: 40px;
@@ -123,7 +138,7 @@
   transform: scale(0.94);
 }
 .content {
-  width: min(1200px, 100%);
+  width: min(var(--app-max-w), calc(100% - var(--app-gutter)));
   margin: 0 auto;
   padding: var(--sp-6);
 }
@@ -148,8 +163,8 @@
 }
 @media (max-width: 920px) {
   .topbar {
-    grid-template-columns: 1fr auto;
-    width: calc(100% - var(--sp-5));
+    /* brand hidden: icon-nav (shrink-safe) + actions */
+    grid-template-columns: minmax(0, 1fr) auto;
   }
   .topbar__brand {
     display: none;
@@ -258,10 +273,10 @@
   z-index: 1;
   display: inline-flex;
   align-items: center;
-  gap: var(--sp-2);
+  gap: var(--sp-1);
   min-height: 36px;
   min-width: 44px;
-  padding: 0 var(--sp-3);
+  padding: 0 var(--sp-2);
   border-radius: var(--r-pill);
   color: var(--label-secondary);
   font-size: var(--type-subhead);
@@ -275,7 +290,9 @@
 .segmented__item:active {
   transform: scale(0.97);
 }
-@media (max-width: 920px) {
+/* Collapse tab labels to icons once the labeled nav can no longer fit the bar
+   alongside the brand + actions, so it degrades cleanly instead of scrolling. */
+@media (max-width: 1320px) {
   .segmented__label {
     display: none;
   }
