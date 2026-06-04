@@ -76,7 +76,7 @@ color (not separate grays). P3 enhancement layered via `@supports`.
   --warning:          #B25000;
   --danger:           #D70015;
   /* Glass (chrome only) */
-  --glass-fill:       rgba(255,255,255,0.65);
+  --glass-fill:       rgba(255,255,255,0.92);
   --glass-highlight:  rgba(255,255,255,0.60);
   --shadow-1:         0 1px 2px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.06);
   --shadow-float:     0 8px 32px rgba(0,0,0,0.12);
@@ -99,7 +99,7 @@ color (not separate grays). P3 enhancement layered via `@supports`.
     --success:          #30D158;
     --warning:          #FF9F0A;
     --danger:           #FF453A;
-    --glass-fill:       rgba(28,28,30,0.65);
+    --glass-fill:       rgba(28,28,30,0.92);
     --glass-highlight:  rgba(255,255,255,0.10);
     --shadow-1:         0 1px 2px rgba(0,0,0,0.30), 0 4px 16px rgba(0,0,0,0.40);
     --shadow-float:     0 8px 32px rgba(0,0,0,0.55);
@@ -143,7 +143,7 @@ uppercase, +0.05em, `--label-secondary`.
 
 - **8pt grid** (4pt half-steps). Tokens: `--sp-1:4 --sp-2:8 --sp-3:12 --sp-4:16 --sp-5:24 --sp-6:32 --sp-8:48`.
 - **Radius:** `--r-card:18px --r-control:12px --r-tile:20px --r-pill:999px`.
-- Content max-width `min(1200px, 100%)`, generous page padding (`--sp-6` desktop, `--sp-4` mobile).
+- Content + floating topbar share `--app-max-w` (`1320px`) via `min(var(--app-max-w), calc(100% - var(--app-gutter)))` so they stay edge-aligned; generous page padding (`--sp-6` desktop, `--sp-4` mobile).
 - Bento on Overview only; other views use calm stacked sections / responsive card grids.
 
 ### 4.4 Materials — glass (chrome only)
@@ -200,10 +200,11 @@ CSS `linear()` spring curves; transform/opacity only.
 ## 6. Shell spec (Focused Topbar)
 
 - **Floating glass bar**, inset (`--sp-4` from top/sides), `--r-pill`/`--r-card` rounded, `.glass`,
-  `position: sticky`. Contains: brand mark + "Sigma Dashboard", the `SegmentedControl` (6 tabs), and
-  topbar actions (date stepper, sign-out icon button).
+  `position: sticky`. Contains: brand mark + "Sigma Dashboard", the `SegmentedControl` (7 tabs) in a
+  centered `.topbar__nav` wrapper, and topbar actions (date stepper, sign-out icon button).
 - **SegmentedControl**: pill indicator translateX/scaleX-springs (`--spring-snappy`) to the active
-  segment; segment shows icon + label (label hidden < 920px). Full keyboard + `role="tablist"`.
+  segment; segment shows icon + label (labels collapse to icons ≤ 1320px, where the labeled nav no
+  longer fits the bar; the brand hides ≤ 920px). Full keyboard + `role="tablist"`.
 - **Large title** (`--type-large-title`) per active view, below the bar; **collapses** into the bar
   on scroll (IntersectionObserver/scroll-progress, reduced-motion → static).
 - **Date control**: `‹ [date] ›` stepper wrapping the native `<input type=date>` (kept for a11y),
