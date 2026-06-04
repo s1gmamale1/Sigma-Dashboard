@@ -60,12 +60,57 @@ export interface Report {
   assignments: string[];
 }
 
+export interface RatingPoint {
+  date: string;
+  rating: number;
+}
+
+export type CompositeGrade = "Under" | "Average" | "Good" | "Over";
+
 export interface PerformanceRow {
   person: Person;
   average_rating: number | null;
   report_completion_rate: number;
   missing_days: number;
   assignment_count: number;
+  top_accomplishment: string | null;
+  rating_trend: RatingPoint[];
+  avg_check_in: string | null;
+  avg_check_out: string | null;
+  on_time_count: number;
+  late_count: number;
+  late15_count: number;
+  no_show_count: number;
+  absent_count: number;
+  attendance_days: number;
+  punctuality_rate: number;
+  compensates: boolean;
+  avg_hours: number | null;
+  composite_grade: CompositeGrade;
+  composite_score: number;
+}
+
+export interface Evaluation {
+  id: number;
+  person: Person;
+  period_start: string;
+  period_end: string;
+  grade: string;
+  what: string;
+  how: string;
+  why: string;
+  composite_score: number | null;
+  updated_at: string | null;
+}
+
+export interface Feedback {
+  id: number;
+  person: Person;
+  feedback_date: string;
+  note: string;
+  source: string | null;
+  grade_adjustment: number;
+  created_at: string;
 }
 
 export interface Goal {

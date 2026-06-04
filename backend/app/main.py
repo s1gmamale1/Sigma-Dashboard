@@ -76,6 +76,7 @@ OPENAPI_TAGS = [
     {"name": "Dashboard", "description": "Aggregated home view for a shift day."},
     {"name": "Attendance", "description": "Tonight's shift, history grid, weekly lateness summary, and chase state."},
     {"name": "Reports", "description": "Daily reports and the performance roll-up."},
+    {"name": "Performance", "description": "Strict WHAT/HOW/WHY evaluation — leaderboard, composite grade, weekly evaluations, and feedback."},
     {"name": "Goals", "description": "Active goals and at-risk goals."},
     {"name": "Projects", "description": "Per-topic project condition — admin create/edit/archive/delete, task checklist, and log timeline."},
     {"name": "Viper ingest", "description": "Write API used by the Viper agent (authenticated with `X-Viper-Token`)."},

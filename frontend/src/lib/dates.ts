@@ -19,6 +19,20 @@ export function weekStart(date = isoDate()): string {
   return isoDate(current);
 }
 
+/** Monday..Saturday (6 work-days) of the week containing `date`. */
+export function monSatWeek(date = isoDate()): { from: string; to: string } {
+  const from = weekStart(date);
+  return { from, to: addDays(from, 5) };
+}
+
+/** First..last calendar day of the month containing `date`. */
+export function monthRange(date = isoDate()): { from: string; to: string } {
+  const base = new Date(`${date}T12:00:00`);
+  const first = new Date(base.getFullYear(), base.getMonth(), 1, 12);
+  const last = new Date(base.getFullYear(), base.getMonth() + 1, 0, 12);
+  return { from: isoDate(first), to: isoDate(last) };
+}
+
 export function shortDate(date: string): string {
   return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(
     new Date(`${date}T12:00:00`)

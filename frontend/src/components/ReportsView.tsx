@@ -1,5 +1,4 @@
-import type { PerformanceRow, Report } from "../lib/types";
-import { BarChart } from "./BarChart";
+import type { Report } from "../lib/types";
 import { Card } from "./Card";
 import { EmptyState } from "./EmptyState";
 import { SectionHeader } from "./SectionHeader";
@@ -24,7 +23,7 @@ function RatingDots({ rating }: { rating: number | null }) {
   );
 }
 
-export function ReportsView({ reports, performance }: { reports: Report[]; performance: PerformanceRow[] }) {
+export function ReportsView({ reports }: { reports: Report[] }) {
   return (
     <section className="view-grid">
       <Card wide>
@@ -49,35 +48,6 @@ export function ReportsView({ reports, performance }: { reports: Report[]; perfo
         ) : (
           <EmptyState title="No reports for this date" />
         )}
-      </Card>
-
-      <Card>
-        <SectionHeader title="Performance rank" />
-        {performance.length ? (
-          <div className="stack">
-            {performance.map((row, index) => (
-              <div className="rank-row" key={row.person.id}>
-                <span className="rank-badge">{index + 1}</span>
-                <strong>{row.person.display_name}</strong>
-                <span className="muted">
-                  {row.average_rating ?? "—"} avg · {row.report_completion_rate}% complete
-                </span>
-                <b>{row.missing_days} missing</b>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <EmptyState title="No performance data" />
-        )}
-      </Card>
-
-      <Card>
-        <SectionHeader title="Rating average" />
-        <BarChart
-          data={performance.map((r) => ({ label: r.person.display_name, value: r.average_rating ?? 0 }))}
-          ariaLabel="Average rating per person, out of 4"
-          max={4}
-        />
       </Card>
     </section>
   );

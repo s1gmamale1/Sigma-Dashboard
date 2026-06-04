@@ -4,6 +4,8 @@ import type {
   AttendanceHistoryRow,
   ChaseState,
   Envelope,
+  Evaluation,
+  Feedback,
   GoogleSheetImportResult,
   GoogleSheetPreview,
   Goal,
@@ -79,6 +81,10 @@ export const api = {
   reports: (token: string, date: string) => apiFetch<Report[]>(`/api/v1/reports/daily?date=${date}`, token),
   performance: (token: string, from: string, to: string) =>
     apiFetch<PerformanceRow[]>(`/api/v1/performance?from=${from}&to=${to}`, token),
+  evaluations: (token: string, from: string, to: string) =>
+    apiFetch<Evaluation[]>(`/api/v1/evaluations?from=${from}&to=${to}`, token),
+  feedback: (token: string, from: string, to: string) =>
+    apiFetch<Feedback[]>(`/api/v1/feedback?from=${from}&to=${to}`, token),
   goals: (token: string) => apiFetch<Goal[]>("/api/v1/goals", token),
   projectConditions: (token: string, includeArchived = false) =>
     apiFetch<ProjectCondition[]>(

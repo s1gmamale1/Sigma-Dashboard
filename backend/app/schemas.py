@@ -144,12 +144,77 @@ class ReportOut(StrictModel):
     assignments: list[str] = Field(default_factory=list)
 
 
+class RatingPoint(StrictModel):
+    date: date
+    rating: int
+
+
 class PerformanceRow(StrictModel):
     person: PersonOut
+    # WHAT — output
     average_rating: float | None
     report_completion_rate: float
     missing_days: int
     assignment_count: int
+    top_accomplishment: str | None = None
+    rating_trend: list[RatingPoint] = Field(default_factory=list)
+    # HOW — work pattern
+    avg_check_in: str | None = None
+    avg_check_out: str | None = None
+    on_time_count: int = 0
+    late_count: int = 0
+    late15_count: int = 0
+    no_show_count: int = 0
+    absent_count: int = 0
+    attendance_days: int = 0
+    punctuality_rate: float = 0.0
+    compensates: bool = False
+    avg_hours: float | None = None
+    # Composite (server-computed)
+    composite_grade: str = "Under"
+    composite_score: int = 0
+
+
+class ViperEvaluationUpsert(StrictModel):
+    person: ViperPersonRef
+    period_start: date
+    period_end: date
+    grade: str = Field(min_length=1, max_length=24)
+    what: str = ""
+    how: str = ""
+    why: str = ""
+    composite_score: int | None = Field(default=None, ge=0, le=100)
+
+
+class EvaluationOut(StrictModel):
+    id: int
+    person: PersonOut
+    period_start: date
+    period_end: date
+    grade: str
+    what: str
+    how: str
+    why: str
+    composite_score: int | None
+    updated_at: datetime | None
+
+
+class ViperFeedbackUpsert(StrictModel):
+    person: ViperPersonRef
+    feedback_date: date
+    note: str = Field(min_length=1)
+    source: str | None = Field(default=None, max_length=40)
+    grade_adjustment: int = Field(default=0, ge=-1, le=1)
+
+
+class FeedbackOut(StrictModel):
+    id: int
+    person: PersonOut
+    feedback_date: date
+    note: str
+    source: str | None
+    grade_adjustment: int
+    created_at: datetime
 
 
 class ViperGoalUpsert(StrictModel):

@@ -78,7 +78,27 @@ curl -s -X POST http://localhost:8000/api/v1/viper/attendance \
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | `GET` | `/reports/daily?date=` | Admin | Each person's report for the day (summary, rating 1–4, missing flag, assignments). |
-| `GET` | `/performance?from=&to=` | Admin | Per-person roll-up (avg rating, completion %, missing days), best-first. |
+
+### Performance
+A strict WHAT (output) / HOW (work pattern) / WHY (verdict) view per person over `[from, to]`.
+`GET /performance` joins reports + attendance + the latest in-window feedback and returns a
+server-computed **composite grade** (`Under`/`Average`/`Good`/`Over`, plus a 0–100 `composite_score`):
+
+- **Output band (WHAT)** — from `average_rating`: `>=3.5` Over, `>=2.5` Good, `>=1.5` Average, else Under; no rated reports (`average_rating: null`) starts at Under.
+- **Attendance penalty (HOW)** — a `no_show` drops 2 bands; `>=2` late arrivals while **not** compensating drop 1.
+- **Compensation** — late check-ins offset by check-outs past 03:00 whose average overtime `>=` the average lateness set `compensates: true`, which **cancels** the chronic-late penalty.
+- **Feedback override (WHY)** — the latest in-window feedback's `grade_adjustment` (`-1/0/+1`) shifts the final band, clamped to `[Under, Over]`.
+- **Completion %** — `report_completion_rate` = non-missing reports / Mon–Sat work-days in the window.
+- `avg_check_in`/`avg_check_out` are `"HH:MM"` strings; `avg_hours` is the mean shift length (≈9h for an 18:00 → next-day 03:xx pair). Rows are returned best→worst.
+
+Evaluations (Viper's weekly WHAT/HOW/WHY narrative) and feedback notes (Abdul's judgment) have their
+own read endpoints. `evaluation.updated_at` and `feedback.created_at` are **naive-UTC** (no `Z`).
+
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| `GET` | `/performance?from=&to=` | Admin | Enriched per-person rows (WHAT/HOW metrics + composite grade/score, rating trend), best-first. |
+| `GET` | `/evaluations?from=&to=` | Admin | Evaluations whose period overlaps the window, newest period first (latest per person is the WHY). |
+| `GET` | `/feedback?from=&to=` | Admin | Feedback notes dated within the window, newest first (the per-person timeline under WHY). |
 
 ### Goals
 | Method | Path | Auth | Purpose |
@@ -106,6 +126,8 @@ via `/viper/project-condition`; admins additionally create/edit/archive/delete f
 | `POST` | `/viper/report` | Viper | Idempotent upsert of a daily report (keyed on person + date). |
 | `POST` | `/viper/goal` | Viper | Idempotent upsert of a goal (keyed on `slug`); `progress_log` is appended. |
 | `POST` | `/viper/project-condition` | Viper | Idempotent upsert of a topic's condition (keyed on `topic_id`). |
+| `POST` | `/viper/evaluation` | Viper | Idempotent upsert of a weekly WHAT/HOW/WHY evaluation (keyed on person + `period_start` + `period_end`); re-posting the same period overwrites the row. |
+| `POST` | `/viper/feedback` | Viper | Insert a feedback note (`note`, optional `source`, `grade_adjustment` ∈ `{-1,0,+1}`); the latest in-window note overrides a person's composite band. |
 
 ### Google Sheets
 | Method | Path | Auth | Purpose |

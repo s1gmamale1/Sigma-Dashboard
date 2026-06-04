@@ -12,6 +12,8 @@ from .google_sheets import GoogleSheetError, get_sheet_preview, import_google_sh
 from .models import (
     Assignment,
     AttendanceRecord,
+    Evaluation,
+    Feedback,
     Goal,
     GoalLog,
     Person,
@@ -30,6 +32,8 @@ from .schemas import (
     GoalOut,
     GoogleSheetImportResult,
     GoogleSheetPreview,
+    EvaluationOut,
+    FeedbackOut,
     IdResult,
     LoginRequest,
     LoginResponse,
@@ -44,6 +48,8 @@ from .schemas import (
     ReportOut,
     SheetSyncResult,
     ViperAttendanceUpsert,
+    ViperEvaluationUpsert,
+    ViperFeedbackUpsert,
     ViperGoalUpsert,
     ViperProjectConditionUpsert,
     ViperReportUpsert,
@@ -52,6 +58,8 @@ from .schemas import (
 from .services import (
     add_project_log,
     apply_goal_status,
+    compute_performance_rows,
+    create_feedback,
     create_project,
     date_span,
     delete_project,
@@ -61,6 +69,7 @@ from .services import (
     sync_attendance_to_sheet,
     update_project,
     upsert_attendance,
+    upsert_evaluation,
     upsert_goal,
     upsert_project_condition,
     upsert_report,
@@ -388,11 +397,38 @@ def get_daily_reports(
     return ok(result)
 
 
+def evaluation_out(evaluation: Evaluation, person: Person) -> EvaluationOut:
+    return EvaluationOut(
+        id=evaluation.id,
+        person=person_out(person),
+        period_start=evaluation.period_start,
+        period_end=evaluation.period_end,
+        grade=evaluation.grade,
+        what=evaluation.what,
+        how=evaluation.how,
+        why=evaluation.why,
+        composite_score=evaluation.composite_score,
+        updated_at=evaluation.updated_at,
+    )
+
+
+def feedback_out(item: Feedback, person: Person) -> FeedbackOut:
+    return FeedbackOut(
+        id=item.id,
+        person=person_out(person),
+        feedback_date=item.feedback_date,
+        note=item.note,
+        source=item.source,
+        grade_adjustment=item.grade_adjustment,
+        created_at=item.created_at,
+    )
+
+
 @router.get(
     "/performance",
     response_model=Envelope[list[PerformanceRow]],
-    tags=["Reports"],
-    summary="Performance roll-up",
+    tags=["Performance"],
+    summary="Performance leaderboard",
     responses={**UNAUTHORIZED},
 )
 def get_performance(
@@ -401,37 +437,103 @@ def get_performance(
     db: Session = Depends(get_db),
     _: str = Depends(require_admin),
 ) -> Envelope:
-    """Per-person performance over `[from, to]` — average rating, report completion rate (%),
-    missing days, and assignment count — sorted best-first (a leaderboard)."""
-    days = max(1, (end - start).days + 1)
-    people = list(db.scalars(select(Person).where(Person.active.is_(True)).order_by(Person.sort_order)))
-    rows = []
-    for person in people:
-        reports = list(
-            db.scalars(
-                select(Report).where(
-                    Report.person_id == person.id,
-                    Report.report_date >= start,
-                    Report.report_date <= end,
-                )
-            )
-        )
-        ratings = [report.rating for report in reports if report.rating is not None]
-        missing_days = sum(1 for report in reports if report.missing)
-        assignment_count = db.scalar(
-            select(func.count(Assignment.id)).where(Assignment.person_id == person.id, Assignment.active.is_(True))
-        ) or 0
-        rows.append(
-            PerformanceRow(
-                person=person_out(person),
-                average_rating=round(sum(ratings) / len(ratings), 2) if ratings else None,
-                report_completion_rate=round((len([r for r in reports if not r.missing]) / days) * 100, 1),
-                missing_days=missing_days,
-                assignment_count=assignment_count,
-            )
-        )
-    rows.sort(key=lambda item: (item.average_rating or 0, item.report_completion_rate), reverse=True)
+    """Per-person performance over `[from, to]`, best→worst: WHAT (avg rating + trend, completion %,
+    accomplishment) + HOW (avg check-in/out, status counts, compensation, avg hours, punctuality) +
+    the output-anchored **composite grade** (attendance penalises; latest feedback adjusts ±1 band).
+    Completion % is over Mon–Sat work-days."""
+    rows = [PerformanceRow(person=person_out(person), **metrics) for person, metrics in compute_performance_rows(db, start, end)]
     return ok(rows)
+
+
+@router.post(
+    "/viper/evaluation",
+    response_model=Envelope[EvaluationOut],
+    tags=["Viper ingest"],
+    summary="Upsert weekly evaluation (Viper)",
+    responses={**VIPER_UNAUTHORIZED},
+)
+def viper_evaluation(
+    payload: ViperEvaluationUpsert,
+    db: Session = Depends(get_db),
+    _: str = Depends(require_viper),
+) -> Envelope:
+    """Idempotent upsert of a person's holistic WHAT/HOW/WHY evaluation for a period (keyed on
+    person + period_start + period_end). Produced weekly by Viper's performance-evaluation skill."""
+    evaluation = upsert_evaluation(db, payload)
+    db.commit()
+    person = db.get(Person, evaluation.person_id)
+    return ok(evaluation_out(evaluation, person))  # type: ignore[arg-type]
+
+
+@router.get(
+    "/evaluations",
+    response_model=Envelope[list[EvaluationOut]],
+    tags=["Performance"],
+    summary="Evaluations in a window",
+    responses={**UNAUTHORIZED},
+)
+def get_evaluations(
+    start: date = Query(alias="from", description="Inclusive start day (YYYY-MM-DD)."),
+    end: date = Query(alias="to", description="Inclusive end day (YYYY-MM-DD)."),
+    db: Session = Depends(get_db),
+    _: str = Depends(require_admin),
+) -> Envelope:
+    """Evaluations whose period overlaps `[from, to]`, newest period first (latest per person is the
+    one the Performance tab shows under WHY)."""
+    evaluations = list(
+        db.scalars(
+            select(Evaluation)
+            .where(Evaluation.period_start <= end, Evaluation.period_end >= start)
+            .order_by(Evaluation.period_start.desc(), Evaluation.id.desc())
+        )
+    )
+    result = [evaluation_out(ev, db.get(Person, ev.person_id)) for ev in evaluations]  # type: ignore[arg-type]
+    return ok(result)
+
+
+@router.post(
+    "/viper/feedback",
+    response_model=Envelope[FeedbackOut],
+    tags=["Viper ingest"],
+    summary="Add feedback note (Viper)",
+    responses={**VIPER_UNAUTHORIZED},
+)
+def viper_feedback(
+    payload: ViperFeedbackUpsert,
+    db: Session = Depends(get_db),
+    _: str = Depends(require_viper),
+) -> Envelope:
+    """Append a feedback note for a person (Abdul's judgment, logged as spoken). `grade_adjustment`
+    (-1/0/+1) lets the most recent feedback in a window nudge the composite grade by a band."""
+    item = create_feedback(db, payload)
+    db.commit()
+    person = db.get(Person, item.person_id)
+    return ok(feedback_out(item, person))  # type: ignore[arg-type]
+
+
+@router.get(
+    "/feedback",
+    response_model=Envelope[list[FeedbackOut]],
+    tags=["Performance"],
+    summary="Feedback in a window",
+    responses={**UNAUTHORIZED},
+)
+def get_feedback(
+    start: date = Query(alias="from", description="Inclusive start day (YYYY-MM-DD)."),
+    end: date = Query(alias="to", description="Inclusive end day (YYYY-MM-DD)."),
+    db: Session = Depends(get_db),
+    _: str = Depends(require_admin),
+) -> Envelope:
+    """Feedback notes dated within `[from, to]`, newest first — the per-person timeline under WHY."""
+    items = list(
+        db.scalars(
+            select(Feedback)
+            .where(Feedback.feedback_date >= start, Feedback.feedback_date <= end)
+            .order_by(Feedback.feedback_date.desc(), Feedback.id.desc())
+        )
+    )
+    result = [feedback_out(item, db.get(Person, item.person_id)) for item in items]  # type: ignore[arg-type]
+    return ok(result)
 
 
 @router.get(

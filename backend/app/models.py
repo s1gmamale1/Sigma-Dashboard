@@ -148,6 +148,35 @@ class ProjectLog(TimestampMixin, Base):
     body: Mapped[str] = mapped_column(Text, nullable=False)
 
 
+class Evaluation(TimestampMixin, Base):
+    __tablename__ = "evaluations"
+    __table_args__ = (
+        UniqueConstraint("person_id", "period_start", "period_end", name="uq_eval_person_period"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    person_id: Mapped[int] = mapped_column(ForeignKey("people.id"), nullable=False, index=True)
+    period_start: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    period_end: Mapped[date] = mapped_column(Date, nullable=False)
+    grade: Mapped[str] = mapped_column(String(24), nullable=False)
+    what: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    how: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    why: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    composite_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+class Feedback(TimestampMixin, Base):
+    __tablename__ = "feedback"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    person_id: Mapped[int] = mapped_column(ForeignKey("people.id"), nullable=False, index=True)
+    feedback_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    note: Mapped[str] = mapped_column(Text, nullable=False)
+    source: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    # Structured override for the composite grade: -1, 0, or +1 band.
+    grade_adjustment: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+
 class SheetSyncRun(TimestampMixin, Base):
     __tablename__ = "sheet_sync_runs"
     __table_args__ = (CheckConstraint(f"status in {SYNC_STATUSES}", name="ck_sheet_sync_status"),)

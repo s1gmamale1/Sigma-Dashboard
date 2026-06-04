@@ -1,12 +1,23 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Activity, AlertTriangle, BarChart3, CalendarDays, FolderKanban, RefreshCw, Sheet, Target } from "lucide-react";
+import {
+  Activity,
+  AlertTriangle,
+  BarChart3,
+  CalendarDays,
+  FolderKanban,
+  Gauge,
+  RefreshCw,
+  Sheet,
+  Target
+} from "lucide-react";
 import { api } from "./lib/api";
-import { addDays, isoDate, weekStart } from "./lib/dates";
+import { addDays, isoDate, monSatWeek, monthRange, weekStart } from "./lib/dates";
 import { AttendanceView } from "./components/AttendanceView";
 import { GoalsView } from "./components/GoalsView";
 import { LoginPanel } from "./components/LoginPanel";
 import { OverviewView } from "./components/OverviewView";
+import { PerformanceView, type PerformancePeriod } from "./components/PerformanceView";
 import { ProjectConditionView } from "./components/ProjectConditionView";
 import { ReportsView } from "./components/ReportsView";
 import { SheetsView } from "./components/SheetsView";
@@ -15,12 +26,13 @@ import { ViewSkeleton } from "./components/ViewSkeleton";
 import { Shell } from "./components/Shell";
 import type { Segment } from "./components/SegmentedControl";
 
-type Tab = "overview" | "attendance" | "reports" | "goals" | "projects" | "sheets";
+type Tab = "overview" | "attendance" | "reports" | "performance" | "goals" | "projects" | "sheets";
 
 const tabs: Segment[] = [
   { id: "overview", label: "Overview", icon: <Activity size={18} /> },
   { id: "attendance", label: "Attendance", icon: <CalendarDays size={18} /> },
   { id: "reports", label: "Reports", icon: <BarChart3 size={18} /> },
+  { id: "performance", label: "Performance", icon: <Gauge size={18} /> },
   { id: "goals", label: "Goals", icon: <Target size={18} /> },
   { id: "projects", label: "Projects", icon: <FolderKanban size={18} /> },
   { id: "sheets", label: "Sheets", icon: <Sheet size={18} /> }
@@ -48,9 +60,28 @@ function AuthenticatedDashboard({ token, logout }: { token: string; logout: () =
   const [active, setActive] = useState<Tab>("overview");
   const [selectedDate, setSelectedDate] = useState(isoDate());
   const [showArchivedProjects, setShowArchivedProjects] = useState(false);
+  const [perfPeriod, setPerfPeriod] = useState<PerformancePeriod>(() => ({
+    kind: "week",
+    ...monSatWeek(isoDate())
+  }));
   const queryClient = useQueryClient();
   const startOfWeek = useMemo(() => weekStart(selectedDate), [selectedDate]);
   const historyStart = useMemo(() => addDays(selectedDate, -6), [selectedDate]);
+
+  // Week/Month presets track the selected date; Custom keeps its own from/to.
+  useEffect(() => {
+    setPerfPeriod((prev) => {
+      if (prev.kind === "week") return { kind: "week", ...monSatWeek(selectedDate) };
+      if (prev.kind === "month") return { kind: "month", ...monthRange(selectedDate) };
+      return prev;
+    });
+  }, [selectedDate]);
+
+  function onPerfPeriod(next: PerformancePeriod) {
+    if (next.kind === "week") setPerfPeriod({ kind: "week", ...monSatWeek(selectedDate) });
+    else if (next.kind === "month") setPerfPeriod({ kind: "month", ...monthRange(selectedDate) });
+    else setPerfPeriod(next);
+  }
 
   const overview = useQuery({
     queryKey: ["overview", selectedDate],
@@ -73,8 +104,16 @@ function AuthenticatedDashboard({ token, logout }: { token: string; logout: () =
     queryFn: () => api.reports(token, selectedDate)
   });
   const performance = useQuery({
-    queryKey: ["performance", startOfWeek, selectedDate],
-    queryFn: () => api.performance(token, startOfWeek, selectedDate)
+    queryKey: ["performance", perfPeriod.from, perfPeriod.to],
+    queryFn: () => api.performance(token, perfPeriod.from, perfPeriod.to)
+  });
+  const evaluations = useQuery({
+    queryKey: ["evaluations", perfPeriod.from, perfPeriod.to],
+    queryFn: () => api.evaluations(token, perfPeriod.from, perfPeriod.to)
+  });
+  const feedback = useQuery({
+    queryKey: ["feedback", perfPeriod.from, perfPeriod.to],
+    queryFn: () => api.feedback(token, perfPeriod.from, perfPeriod.to)
   });
   const goals = useQuery({
     queryKey: ["goals"],
@@ -88,7 +127,8 @@ function AuthenticatedDashboard({ token, logout }: { token: string; logout: () =
   const activeQueries = {
     overview: [overview],
     attendance: [today, history, weekly],
-    reports: [reports, performance],
+    reports: [reports],
+    performance: [performance, evaluations, feedback],
     goals: [goals],
     projects: [projects],
     sheets: []
@@ -126,8 +166,16 @@ function AuthenticatedDashboard({ token, logout }: { token: string; logout: () =
             weekly={weekly.data}
           />
         ) : null}
-        {active === "reports" && reports.data && performance.data ? (
-          <ReportsView reports={reports.data} performance={performance.data} />
+        {active === "reports" && reports.data ? <ReportsView reports={reports.data} /> : null}
+        {active === "performance" && performance.data && evaluations.data && feedback.data ? (
+          <PerformanceView
+            token={token}
+            performance={performance.data}
+            evaluations={evaluations.data}
+            feedback={feedback.data}
+            period={perfPeriod}
+            onPeriod={onPerfPeriod}
+          />
         ) : null}
         {active === "goals" && goals.data ? <GoalsView goals={goals.data} /> : null}
         {active === "projects" && projects.data ? (

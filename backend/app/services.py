@@ -14,6 +14,8 @@ from .models import (
     Assignment,
     AttendancePolicy,
     AttendanceRecord,
+    Evaluation,
+    Feedback,
     Goal,
     GoalLog,
     Person,
@@ -27,6 +29,8 @@ from .schemas import (
     ProjectCreate,
     ProjectUpdate,
     ViperAttendanceUpsert,
+    ViperEvaluationUpsert,
+    ViperFeedbackUpsert,
     ViperGoalUpsert,
     ViperProjectConditionUpsert,
     ViperReportUpsert,
@@ -407,3 +411,206 @@ def apply_goal_status(goal: Goal) -> str:
     if goal.deadline and goal.deadline < date.today():
         return "overdue"
     return goal.status
+
+
+# ── Performance tab ───────────────────────────────────────────────────────────
+GRADE_BANDS = ["Under", "Average", "Good", "Over"]
+# The locked shift: 18:00 → 03:00 (crosses midnight). Lateness/overtime are measured against these.
+_SHIFT_START_TIME = time(18, 0)
+_SHIFT_END_TIME = time(3, 0)
+_SHIFT_CROSSES_MIDNIGHT = _SHIFT_END_TIME <= _SHIFT_START_TIME
+SHIFT_START_MIN = _SHIFT_START_TIME.hour * 60 + _SHIFT_START_TIME.minute  # 1080
+
+
+def _naive(dt: datetime) -> datetime:
+    """Drop tzinfo so wall-clock arithmetic is safe whether the DB returned aware or naive."""
+    return dt.replace(tzinfo=None) if dt.tzinfo is not None else dt
+
+
+def _fmt_hm(total_min: float | None) -> str | None:
+    if total_min is None:
+        return None
+    m = int(round(total_min)) % (24 * 60)
+    return f"{m // 60:02d}:{m % 60:02d}"
+
+
+def count_work_days(start: date, end: date) -> int:
+    """Mon–Sat days in [start, end] inclusive (the work-week denominator)."""
+    n = 0
+    day = start
+    while day <= end:
+        if day.weekday() <= 5:  # Mon=0 .. Sat=5
+            n += 1
+        day += timedelta(days=1)
+    return max(1, n)
+
+
+def _output_band(avg_rating: float | None) -> int:
+    if avg_rating is None:
+        return 0
+    if avg_rating >= 3.5:
+        return 3
+    if avg_rating >= 2.5:
+        return 2
+    if avg_rating >= 1.5:
+        return 1
+    return 0
+
+
+def compute_performance_rows(db: Session, start: date, end: date) -> list[tuple[Person, dict]]:
+    """Per active person over [start, end]: WHAT (reports) + HOW (attendance) metrics and the
+    output-anchored composite grade (attendance penalises; latest feedback adjusts ±1 band).
+    Returns (person, metrics) sorted best→worst by composite_score then avg rating."""
+    workdays = count_work_days(start, end)
+    people = list(db.scalars(select(Person).where(Person.active.is_(True)).order_by(Person.sort_order)))
+    rows: list[tuple[Person, dict]] = []
+    for person in people:
+        reports = list(
+            db.scalars(
+                select(Report)
+                .where(Report.person_id == person.id, Report.report_date >= start, Report.report_date <= end)
+                .order_by(Report.report_date)
+            )
+        )
+        ratings = [r.rating for r in reports if r.rating is not None]
+        non_missing = [r for r in reports if not r.missing]
+        avg_rating = round(sum(ratings) / len(ratings), 2) if ratings else None
+        missing_days = sum(1 for r in reports if r.missing)
+        completion = round(len(non_missing) / workdays * 100, 1)
+        assignment_count = (
+            db.scalar(select(func.count(Assignment.id)).where(Assignment.person_id == person.id, Assignment.active.is_(True)))
+            or 0
+        )
+        rated = [r for r in non_missing if r.rating is not None]
+        if rated:
+            top = max(rated, key=lambda r: (r.rating, r.report_date)).summary
+        elif non_missing:
+            top = non_missing[-1].summary
+        else:
+            top = None
+        rating_trend = [{"date": r.report_date, "rating": r.rating} for r in non_missing if r.rating is not None]
+
+        recs = list(
+            db.scalars(
+                select(AttendanceRecord).where(
+                    AttendanceRecord.person_id == person.id,
+                    AttendanceRecord.shift_date >= start,
+                    AttendanceRecord.shift_date <= end,
+                )
+            )
+        )
+        counts = {s: 0 for s in ("on_time", "late", "late_15", "no_show", "absent")}
+        for r in recs:
+            if r.status in counts:
+                counts[r.status] += 1
+        total = len(recs)
+        punctuality = round(counts["on_time"] / total * 100, 1) if total else 0.0
+        # Lateness/overtime/averages are computed as minute OFFSETS from each record's scheduled
+        # shift start, so the after-midnight checkout (~03:00 next day, or an early pre-midnight
+        # leave) never wraps. Wall-clock arithmetic; tzinfo stripped so naive DB reads are safe.
+        checkin_offsets: list[float] = []
+        checkout_offsets: list[float] = []
+        late_mins: list[float] = []
+        ot_mins: list[float] = []
+        for r in recs:
+            sched_start = datetime.combine(r.shift_date, _SHIFT_START_TIME)
+            sched_end = datetime.combine(
+                r.shift_date + (timedelta(days=1) if _SHIFT_CROSSES_MIDNIGHT else timedelta()),
+                _SHIFT_END_TIME,
+            )
+            if r.check_in_at is not None:
+                off = (_naive(r.check_in_at) - sched_start).total_seconds() / 60
+                checkin_offsets.append(off)
+                late_mins.append(max(0.0, off))
+            if r.check_out_at is not None:
+                checkout_offsets.append((_naive(r.check_out_at) - sched_start).total_seconds() / 60)
+                ot_mins.append(max(0.0, (_naive(r.check_out_at) - sched_end).total_seconds() / 60))
+        avg_in = _fmt_hm(SHIFT_START_MIN + sum(checkin_offsets) / len(checkin_offsets)) if checkin_offsets else None
+        avg_out = _fmt_hm(SHIFT_START_MIN + sum(checkout_offsets) / len(checkout_offsets)) if checkout_offsets else None
+        avg_late = sum(late_mins) / len(late_mins) if late_mins else 0.0
+        avg_ot = sum(ot_mins) / len(ot_mins) if ot_mins else 0.0
+        compensates = avg_late > 0 and avg_ot >= avg_late
+        hours = [
+            (r.check_out_at - r.check_in_at).total_seconds() / 3600
+            for r in recs
+            if r.check_in_at and r.check_out_at
+        ]
+        avg_hours = round(sum(hours) / len(hours), 1) if hours else None
+
+        band = _output_band(avg_rating)
+        penalty = (2 if counts["no_show"] > 0 else 0) + (
+            1 if (counts["late"] + counts["late_15"]) >= 2 and not compensates else 0
+        )
+        latest_fb = db.scalar(
+            select(Feedback)
+            .where(Feedback.person_id == person.id, Feedback.feedback_date >= start, Feedback.feedback_date <= end)
+            .order_by(Feedback.feedback_date.desc(), Feedback.id.desc())
+        )
+        adj = latest_fb.grade_adjustment if latest_fb else 0
+        final = max(0, min(3, band - penalty + adj))
+
+        rows.append(
+            (
+                person,
+                {
+                    "average_rating": avg_rating,
+                    "report_completion_rate": completion,
+                    "missing_days": missing_days,
+                    "assignment_count": assignment_count,
+                    "top_accomplishment": top,
+                    "rating_trend": rating_trend,
+                    "avg_check_in": avg_in,
+                    "avg_check_out": avg_out,
+                    "on_time_count": counts["on_time"],
+                    "late_count": counts["late"],
+                    "late15_count": counts["late_15"],
+                    "no_show_count": counts["no_show"],
+                    "absent_count": counts["absent"],
+                    "attendance_days": total,
+                    "punctuality_rate": punctuality,
+                    "compensates": compensates,
+                    "avg_hours": avg_hours,
+                    "composite_grade": GRADE_BANDS[final],
+                    "composite_score": round(final / 3 * 100),
+                },
+            )
+        )
+    rows.sort(key=lambda pm: (pm[1]["composite_score"], pm[1]["average_rating"] or 0), reverse=True)
+    return rows
+
+
+def upsert_evaluation(db: Session, payload: ViperEvaluationUpsert) -> Evaluation:
+    person = get_or_create_person(db, payload.person.slug, payload.person.display_name)
+    ev = db.scalar(
+        select(Evaluation).where(
+            Evaluation.person_id == person.id,
+            Evaluation.period_start == payload.period_start,
+            Evaluation.period_end == payload.period_end,
+        )
+    )
+    if ev is None:
+        ev = Evaluation(
+            person_id=person.id, period_start=payload.period_start, period_end=payload.period_end, grade=payload.grade
+        )
+        db.add(ev)
+    ev.grade = payload.grade
+    ev.what = payload.what
+    ev.how = payload.how
+    ev.why = payload.why
+    ev.composite_score = payload.composite_score
+    db.flush()
+    return ev
+
+
+def create_feedback(db: Session, payload: ViperFeedbackUpsert) -> Feedback:
+    person = get_or_create_person(db, payload.person.slug, payload.person.display_name)
+    fb = Feedback(
+        person_id=person.id,
+        feedback_date=payload.feedback_date,
+        note=payload.note,
+        source=payload.source,
+        grade_adjustment=payload.grade_adjustment,
+    )
+    db.add(fb)
+    db.flush()
+    return fb

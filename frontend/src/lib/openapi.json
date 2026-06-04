@@ -477,10 +477,10 @@
     "/api/v1/performance": {
       "get": {
         "tags": [
-          "Reports"
+          "Performance"
         ],
-        "summary": "Performance roll-up",
-        "description": "Per-person performance over `[from, to]` \u2014 average rating, report completion rate (%),\nmissing days, and assignment count \u2014 sorted best-first (a leaderboard).",
+        "summary": "Performance leaderboard",
+        "description": "Per-person performance over `[from, to]`, best\u2192worst: WHAT (avg rating + trend, completion %,\naccomplishment) + HOW (avg check-in/out, status counts, compensation, avg hours, punctuality) +\nthe output-anchored **composite grade** (attendance penalises; latest feedback adjusts \u00b11 band).\nCompletion % is over Mon\u2013Sat work-days.",
         "operationId": "get_performance_api_v1_performance_get",
         "security": [
           {
@@ -520,6 +520,272 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Envelope_list_PerformanceRow__"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid admin bearer token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/viper/evaluation": {
+      "post": {
+        "tags": [
+          "Viper ingest"
+        ],
+        "summary": "Upsert weekly evaluation (Viper)",
+        "description": "Idempotent upsert of a person's holistic WHAT/HOW/WHY evaluation for a period (keyed on\nperson + period_start + period_end). Produced weekly by Viper's performance-evaluation skill.",
+        "operationId": "viper_evaluation_api_v1_viper_evaluation_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ViperEvaluationUpsert"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_EvaluationOut_"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid `X-Viper-Token`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/evaluations": {
+      "get": {
+        "tags": [
+          "Performance"
+        ],
+        "summary": "Evaluations in a window",
+        "description": "Evaluations whose period overlaps `[from, to]`, newest period first (latest per person is the\none the Performance tab shows under WHY).",
+        "operationId": "get_evaluations_api_v1_evaluations_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "description": "Inclusive start day (YYYY-MM-DD).",
+              "title": "From"
+            },
+            "description": "Inclusive start day (YYYY-MM-DD)."
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "description": "Inclusive end day (YYYY-MM-DD).",
+              "title": "To"
+            },
+            "description": "Inclusive end day (YYYY-MM-DD)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_list_EvaluationOut__"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid admin bearer token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/viper/feedback": {
+      "post": {
+        "tags": [
+          "Viper ingest"
+        ],
+        "summary": "Add feedback note (Viper)",
+        "description": "Append a feedback note for a person (Abdul's judgment, logged as spoken). `grade_adjustment`\n(-1/0/+1) lets the most recent feedback in a window nudge the composite grade by a band.",
+        "operationId": "viper_feedback_api_v1_viper_feedback_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ViperFeedbackUpsert"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_FeedbackOut_"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid `X-Viper-Token`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/feedback": {
+      "get": {
+        "tags": [
+          "Performance"
+        ],
+        "summary": "Feedback in a window",
+        "description": "Feedback notes dated within `[from, to]`, newest first \u2014 the per-person timeline under WHY.",
+        "operationId": "get_feedback_api_v1_feedback_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "description": "Inclusive start day (YYYY-MM-DD).",
+              "title": "From"
+            },
+            "description": "Inclusive start day (YYYY-MM-DD)."
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "description": "Inclusive end day (YYYY-MM-DD).",
+              "title": "To"
+            },
+            "description": "Inclusive end day (YYYY-MM-DD)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_list_FeedbackOut__"
                 }
               }
             }
@@ -1813,6 +2079,70 @@
         "type": "object",
         "title": "Envelope[DashboardOverview]"
       },
+      "Envelope_EvaluationOut_": {
+        "properties": {
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EvaluationOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Meta"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Envelope[EvaluationOut]"
+      },
+      "Envelope_FeedbackOut_": {
+        "properties": {
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FeedbackOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Meta"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Envelope[FeedbackOut]"
+      },
       "Envelope_GoalOut_": {
         "properties": {
           "data": {
@@ -2141,6 +2471,78 @@
         "type": "object",
         "title": "Envelope[list[AttendanceOut]]"
       },
+      "Envelope_list_EvaluationOut__": {
+        "properties": {
+          "data": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/EvaluationOut"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          },
+          "meta": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Meta"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Envelope[list[EvaluationOut]]"
+      },
+      "Envelope_list_FeedbackOut__": {
+        "properties": {
+          "data": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/FeedbackOut"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          },
+          "meta": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Meta"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Envelope[list[FeedbackOut]]"
+      },
       "Envelope_list_GoalOut__": {
         "properties": {
           "data": {
@@ -2344,6 +2746,133 @@
           "message"
         ],
         "title": "ErrorBody"
+      },
+      "EvaluationOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "person": {
+            "$ref": "#/components/schemas/PersonOut"
+          },
+          "period_start": {
+            "type": "string",
+            "format": "date",
+            "title": "Period Start"
+          },
+          "period_end": {
+            "type": "string",
+            "format": "date",
+            "title": "Period End"
+          },
+          "grade": {
+            "type": "string",
+            "title": "Grade"
+          },
+          "what": {
+            "type": "string",
+            "title": "What"
+          },
+          "how": {
+            "type": "string",
+            "title": "How"
+          },
+          "why": {
+            "type": "string",
+            "title": "Why"
+          },
+          "composite_score": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Composite Score"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "person",
+          "period_start",
+          "period_end",
+          "grade",
+          "what",
+          "how",
+          "why",
+          "composite_score",
+          "updated_at"
+        ],
+        "title": "EvaluationOut"
+      },
+      "FeedbackOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "person": {
+            "$ref": "#/components/schemas/PersonOut"
+          },
+          "feedback_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Feedback Date"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "grade_adjustment": {
+            "type": "integer",
+            "title": "Grade Adjustment"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "person",
+          "feedback_date",
+          "note",
+          "source",
+          "grade_adjustment",
+          "created_at"
+        ],
+        "title": "FeedbackOut"
       },
       "GoalOut": {
         "properties": {
@@ -2684,6 +3213,107 @@
           "assignment_count": {
             "type": "integer",
             "title": "Assignment Count"
+          },
+          "top_accomplishment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top Accomplishment"
+          },
+          "rating_trend": {
+            "items": {
+              "$ref": "#/components/schemas/RatingPoint"
+            },
+            "type": "array",
+            "title": "Rating Trend"
+          },
+          "avg_check_in": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Check In"
+          },
+          "avg_check_out": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Check Out"
+          },
+          "on_time_count": {
+            "type": "integer",
+            "title": "On Time Count",
+            "default": 0
+          },
+          "late_count": {
+            "type": "integer",
+            "title": "Late Count",
+            "default": 0
+          },
+          "late15_count": {
+            "type": "integer",
+            "title": "Late15 Count",
+            "default": 0
+          },
+          "no_show_count": {
+            "type": "integer",
+            "title": "No Show Count",
+            "default": 0
+          },
+          "absent_count": {
+            "type": "integer",
+            "title": "Absent Count",
+            "default": 0
+          },
+          "attendance_days": {
+            "type": "integer",
+            "title": "Attendance Days",
+            "default": 0
+          },
+          "punctuality_rate": {
+            "type": "number",
+            "title": "Punctuality Rate",
+            "default": 0.0
+          },
+          "compensates": {
+            "type": "boolean",
+            "title": "Compensates",
+            "default": false
+          },
+          "avg_hours": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Hours"
+          },
+          "composite_grade": {
+            "type": "string",
+            "title": "Composite Grade",
+            "default": "Under"
+          },
+          "composite_score": {
+            "type": "integer",
+            "title": "Composite Score",
+            "default": 0
           }
         },
         "additionalProperties": false,
@@ -2996,6 +3626,26 @@
         "title": "ProjectUpdate",
         "description": "Admin: patch a project. Every field is optional; omitted fields are left unchanged."
       },
+      "RatingPoint": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "title": "Date"
+          },
+          "rating": {
+            "type": "integer",
+            "title": "Rating"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "date",
+          "rating"
+        ],
+        "title": "RatingPoint"
+      },
       "ReportOut": {
         "properties": {
           "id": {
@@ -3252,6 +3902,110 @@
           "shift_date"
         ],
         "title": "ViperAttendanceUpsert"
+      },
+      "ViperEvaluationUpsert": {
+        "properties": {
+          "person": {
+            "$ref": "#/components/schemas/ViperPersonRef"
+          },
+          "period_start": {
+            "type": "string",
+            "format": "date",
+            "title": "Period Start"
+          },
+          "period_end": {
+            "type": "string",
+            "format": "date",
+            "title": "Period End"
+          },
+          "grade": {
+            "type": "string",
+            "maxLength": 24,
+            "minLength": 1,
+            "title": "Grade"
+          },
+          "what": {
+            "type": "string",
+            "title": "What",
+            "default": ""
+          },
+          "how": {
+            "type": "string",
+            "title": "How",
+            "default": ""
+          },
+          "why": {
+            "type": "string",
+            "title": "Why",
+            "default": ""
+          },
+          "composite_score": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 100.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Composite Score"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "person",
+          "period_start",
+          "period_end",
+          "grade"
+        ],
+        "title": "ViperEvaluationUpsert"
+      },
+      "ViperFeedbackUpsert": {
+        "properties": {
+          "person": {
+            "$ref": "#/components/schemas/ViperPersonRef"
+          },
+          "feedback_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Feedback Date"
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Note"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 40
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "grade_adjustment": {
+            "type": "integer",
+            "maximum": 1.0,
+            "minimum": -1.0,
+            "title": "Grade Adjustment",
+            "default": 0
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "person",
+          "feedback_date",
+          "note"
+        ],
+        "title": "ViperFeedbackUpsert"
       },
       "ViperGoalUpsert": {
         "properties": {
@@ -3561,6 +4315,10 @@
     {
       "name": "Reports",
       "description": "Daily reports and the performance roll-up."
+    },
+    {
+      "name": "Performance",
+      "description": "Strict WHAT/HOW/WHY evaluation \u2014 leaderboard, composite grade, weekly evaluations, and feedback."
     },
     {
       "name": "Goals",
