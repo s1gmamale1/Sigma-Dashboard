@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from .attendance_sheet import import_attendance_sheet
 from .bootstrap import init_db
-from .config import get_settings
+from .config import get_settings, validate_runtime_secrets
 from .db import engine
 from .routes import router
 from .schemas import Envelope, ErrorBody
@@ -86,6 +86,7 @@ OPENAPI_TAGS = [
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    validate_runtime_secrets(get_settings())
     init_db()
     settings = get_settings()
     task: asyncio.Task | None = None

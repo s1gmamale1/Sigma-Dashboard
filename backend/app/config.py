@@ -39,3 +39,21 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+PLACEHOLDER_PREFIX = "change-me"
+
+
+def validate_runtime_secrets(settings: Settings) -> None:
+    """Refuse to boot with the shipped placeholder secrets — a missing .env would
+    otherwise run with predictable JWT/Viper secrets that pass min_length."""
+    bad = [
+        name
+        for name, value in (
+            ("SIGMA_JWT_SECRET", settings.jwt_secret),
+            ("SIGMA_VIPER_TOKEN", settings.viper_token),
+        )
+        if value.startswith(PLACEHOLDER_PREFIX)
+    ]
+    if bad:
+        raise RuntimeError(f"placeholder secrets in use — set {', '.join(bad)} in .env")

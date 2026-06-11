@@ -30,3 +30,13 @@ def test_require_viper_accepts_and_rejects() -> None:
         require_viper("wrong-token", None, settings)
     with pytest.raises(HTTPException):
         require_viper(None, None, settings)
+
+
+def test_placeholder_secrets_rejected() -> None:
+    from backend.app.config import validate_runtime_secrets
+
+    with pytest.raises(RuntimeError, match="SIGMA_JWT_SECRET"):
+        validate_runtime_secrets(make_settings(jwt_secret="change-me-in-env-1234"))
+    with pytest.raises(RuntimeError, match="SIGMA_VIPER_TOKEN"):
+        validate_runtime_secrets(make_settings(viper_token="change-me-viper-token"))
+    validate_runtime_secrets(make_settings())  # real-looking secrets pass
