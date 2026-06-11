@@ -69,3 +69,78 @@ def test_migrate_off_day_is_idempotent() -> None:
     with engine.connect() as conn:
         count = conn.execute(text("SELECT COUNT(*) FROM attendance_records")).scalar()
     assert count == 1
+
+
+# Pre-0-100 reports DDL (1..4 rating CHECK), as SQLAlchemy generated it.
+OLD_REPORTS_DDL = """
+CREATE TABLE reports (
+    id INTEGER NOT NULL,
+    person_id INTEGER NOT NULL,
+    report_date DATE NOT NULL,
+    summary TEXT NOT NULL,
+    extras TEXT,
+    rating INTEGER,
+    missing BOOLEAN NOT NULL,
+    source_topic VARCHAR(80),
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT uq_report_person_date UNIQUE (person_id, report_date),
+    CONSTRAINT ck_report_rating CHECK (rating is null or (rating >= 1 and rating <= 4))
+)
+"""
+
+
+def _old_reports_engine():
+    engine = create_engine(
+        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
+    )
+    with engine.begin() as conn:
+        conn.execute(text(OLD_REPORTS_DDL))
+        conn.execute(text("CREATE INDEX ix_reports_person_id ON reports (person_id)"))
+        conn.execute(text("CREATE INDEX ix_reports_report_date ON reports (report_date)"))
+        for day, rating in (("2026-06-01", 4), ("2026-06-02", 1), ("2026-06-03", "NULL")):
+            conn.execute(
+                text(
+                    "INSERT INTO reports (person_id, report_date, summary, rating, missing,"
+                    " created_at, updated_at)"
+                    f" VALUES (1, '{day}', 'work', {rating}, 0, '{day}', '{day}')"
+                )
+            )
+    return engine
+
+
+def test_migrate_report_rating_rebuilds_and_converts_legacy() -> None:
+    from backend.app.bootstrap import migrate_report_rating
+
+    engine = _old_reports_engine()
+    migrate_report_rating(engine)
+    with engine.begin() as conn:
+        rows = conn.execute(
+            text("SELECT report_date, rating FROM reports ORDER BY report_date")
+        ).all()
+        # legacy band ints are scaled x25 so they stay in the same leaderboard band
+        assert [tuple(r) for r in rows] == [
+            ("2026-06-01", 100),
+            ("2026-06-02", 25),
+            ("2026-06-03", None),
+        ]
+        # 0-100 scores are now accepted
+        conn.execute(
+            text(
+                "INSERT INTO reports (person_id, report_date, summary, rating, missing,"
+                " created_at, updated_at)"
+                " VALUES (1, '2026-06-04', 'work', 86, 0, '2026-06-04', '2026-06-04')"
+            )
+        )
+
+
+def test_migrate_report_rating_is_idempotent() -> None:
+    from backend.app.bootstrap import migrate_report_rating
+
+    engine = _old_reports_engine()
+    migrate_report_rating(engine)
+    migrate_report_rating(engine)  # second run must no-op (no double x25)
+    with engine.connect() as conn:
+        top = conn.execute(text("SELECT MAX(rating) FROM reports")).scalar()
+    assert top == 100

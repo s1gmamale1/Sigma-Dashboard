@@ -463,13 +463,14 @@ def count_work_days(start: date, end: date) -> int:
 
 
 def _output_band(avg_rating: float | None) -> int:
+    """Band the 0–100 report score average: ≥85 Over · 70–84 Good · 50–69 Average · <50 Under."""
     if avg_rating is None:
         return 0
-    if avg_rating >= 3.5:
+    if avg_rating >= 85:
         return 3
-    if avg_rating >= 2.5:
+    if avg_rating >= 70:
         return 2
-    if avg_rating >= 1.5:
+    if avg_rating >= 50:
         return 1
     return 0
 

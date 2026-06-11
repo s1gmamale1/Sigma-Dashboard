@@ -128,29 +128,29 @@ class TestOutputBands:
         db.commit()
         return metrics_for(db, person, WEEK_START, WEEK_END)["composite_grade"]
 
-    def test_avg_at_or_above_3_5_is_over(self):
-        # mean(4, 4, 3) = 3.67 >= 3.5
-        assert self._grade_for_avg_ratings([4, 4, 3]) == "Over"
+    def test_avg_at_or_above_85_is_over(self):
+        # mean(100, 90, 80) = 90 >= 85
+        assert self._grade_for_avg_ratings([100, 90, 80]) == "Over"
 
-    def test_avg_at_or_above_2_5_is_good(self):
-        # mean(3, 3, 2) = 2.67 -> Good
-        assert self._grade_for_avg_ratings([3, 3, 2]) == "Good"
+    def test_avg_at_or_above_70_is_good(self):
+        # mean(80, 75, 70) = 75 -> Good
+        assert self._grade_for_avg_ratings([80, 75, 70]) == "Good"
 
-    def test_avg_at_or_above_1_5_is_average(self):
-        # mean(2, 2, 1) = 1.67 -> Average
-        assert self._grade_for_avg_ratings([2, 2, 1]) == "Average"
+    def test_avg_at_or_above_50_is_average(self):
+        # mean(60, 55, 50) = 55 -> Average
+        assert self._grade_for_avg_ratings([60, 55, 50]) == "Average"
 
-    def test_avg_below_1_5_is_under(self):
-        # mean(1, 1, 1) = 1.0 -> Under
-        assert self._grade_for_avg_ratings([1, 1, 1]) == "Under"
+    def test_avg_below_50_is_under(self):
+        # mean(40, 30, 20) = 30 -> Under
+        assert self._grade_for_avg_ratings([40, 30, 20]) == "Under"
 
-    def test_band_boundary_3_5_is_over(self):
-        # exactly 3.5 -> Over
-        assert self._grade_for_avg_ratings([4, 3]) == "Over"
+    def test_band_boundary_85_is_over(self):
+        # exactly 85 -> Over
+        assert self._grade_for_avg_ratings([90, 80]) == "Over"
 
-    def test_band_boundary_2_5_is_good(self):
-        # exactly 2.5 -> Good
-        assert self._grade_for_avg_ratings([3, 2]) == "Good"
+    def test_band_boundary_70_is_good(self):
+        # exactly 70 -> Good
+        assert self._grade_for_avg_ratings([75, 65]) == "Good"
 
     def test_no_reports_avg_none_is_under(self):
         db = make_db()
@@ -170,9 +170,9 @@ class TestAttendancePenalty:
     def test_no_show_drops_two_bands_over_to_average(self):
         db = make_db()
         person = add_person(db, "noshow")
-        # Over output (avg 4.0) ...
+        # Over output (avg 100) ...
         for offset in range(3):
-            add_report(db, person, date(2026, 6, 1 + offset), rating=4)
+            add_report(db, person, date(2026, 6, 1 + offset), rating=100)
         # ... but a single no_show drops two bands: Over(3) - 2 = Average(1).
         add_attendance(db, person, date(2026, 6, 2), "no_show")
         db.commit()
@@ -184,7 +184,7 @@ class TestAttendancePenalty:
         db = make_db()
         person = add_person(db, "chronic")
         for offset in range(3):
-            add_report(db, person, date(2026, 6, 1 + offset), rating=4)  # Over output
+            add_report(db, person, date(2026, 6, 1 + offset), rating=100)  # Over output
         # Two late arrivals, no overtime check-outs -> not compensating -> -1 band.
         add_attendance(
             db, person, date(2026, 6, 1), "late",
@@ -205,7 +205,7 @@ class TestAttendancePenalty:
         db = make_db()
         person = add_person(db, "onelate")
         for offset in range(3):
-            add_report(db, person, date(2026, 6, 1 + offset), rating=4)
+            add_report(db, person, date(2026, 6, 1 + offset), rating=100)
         add_attendance(
             db, person, date(2026, 6, 1), "late",
             check_in=datetime(2026, 6, 1, 18, 20, tzinfo=TZ), minutes_late=20,
@@ -225,7 +225,7 @@ class TestCompensation:
         db = make_db()
         person = add_person(db, "grinder")
         for offset in range(3):
-            add_report(db, person, date(2026, 6, 1 + offset), rating=4)  # Over output
+            add_report(db, person, date(2026, 6, 1 + offset), rating=100)  # Over output
         # Two late check-ins (avg late ~22 min) but check-outs past 03:00 with big overtime
         # (avg OT ~75 min) -> compensates True -> chronic-late penalty cancelled.
         add_attendance(
@@ -250,7 +250,7 @@ class TestCompensation:
         db = make_db()
         person = add_person(db, "halfgrind")
         for offset in range(3):
-            add_report(db, person, date(2026, 6, 1 + offset), rating=4)
+            add_report(db, person, date(2026, 6, 1 + offset), rating=100)
         # avg late ~22 min but only ~10 min avg overtime -> ot < late -> not compensating.
         add_attendance(
             db, person, date(2026, 6, 1), "late",
@@ -280,7 +280,7 @@ class TestFeedbackOverride:
         db = make_db()
         person = add_person(db, "fb-down")
         for offset in range(3):
-            add_report(db, person, date(2026, 6, 1 + offset), rating=4)  # Over output, clean attendance
+            add_report(db, person, date(2026, 6, 1 + offset), rating=100)  # Over output, clean attendance
         db.add(
             Feedback(person_id=person.id, feedback_date=date(2026, 6, 3), note="slipping", grade_adjustment=-1)
         )
@@ -292,8 +292,8 @@ class TestFeedbackOverride:
     def test_latest_feedback_plus_one_shifts_band_up(self):
         db = make_db()
         person = add_person(db, "fb-up")
-        # Good output (avg ~2.67)
-        for offset, rating in enumerate([3, 3, 2]):
+        # Good output (avg 75)
+        for offset, rating in enumerate([80, 75, 70]):
             add_report(db, person, date(2026, 6, 1 + offset), rating=rating)
         db.add(
             Feedback(person_id=person.id, feedback_date=date(2026, 6, 3), note="great hustle", grade_adjustment=1)
@@ -307,7 +307,7 @@ class TestFeedbackOverride:
         db = make_db()
         person = add_person(db, "fb-latest")
         for offset in range(3):
-            add_report(db, person, date(2026, 6, 1 + offset), rating=4)  # Over output
+            add_report(db, person, date(2026, 6, 1 + offset), rating=100)  # Over output
         # Older -1, newer +1; newest (by date then id) wins -> +1, clamped at Over.
         db.add(Feedback(person_id=person.id, feedback_date=date(2026, 6, 2), note="early", grade_adjustment=-1))
         db.add(Feedback(person_id=person.id, feedback_date=date(2026, 6, 4), note="recovered", grade_adjustment=1))
@@ -320,7 +320,7 @@ class TestFeedbackOverride:
         db = make_db()
         person = add_person(db, "fb-clamp-hi")
         for offset in range(3):
-            add_report(db, person, date(2026, 6, 1 + offset), rating=4)  # already Over(3)
+            add_report(db, person, date(2026, 6, 1 + offset), rating=100)  # already Over(3)
         db.add(Feedback(person_id=person.id, feedback_date=date(2026, 6, 3), note="stellar", grade_adjustment=1))
         db.commit()
         metrics = metrics_for(db, person, WEEK_START, WEEK_END)
@@ -331,7 +331,7 @@ class TestFeedbackOverride:
         db = make_db()
         person = add_person(db, "fb-clamp-lo")
         for offset in range(3):
-            add_report(db, person, date(2026, 6, 1 + offset), rating=1)  # already Under(0)
+            add_report(db, person, date(2026, 6, 1 + offset), rating=25)  # already Under(0)
         db.add(Feedback(person_id=person.id, feedback_date=date(2026, 6, 3), note="worse", grade_adjustment=-1))
         db.commit()
         metrics = metrics_for(db, person, WEEK_START, WEEK_END)
@@ -342,7 +342,7 @@ class TestFeedbackOverride:
         db = make_db()
         person = add_person(db, "fb-out")
         for offset in range(3):
-            add_report(db, person, date(2026, 6, 1 + offset), rating=4)  # Over output
+            add_report(db, person, date(2026, 6, 1 + offset), rating=100)  # Over output
         # Feedback dated after the window -> not applied.
         db.add(Feedback(person_id=person.id, feedback_date=date(2026, 6, 20), note="later", grade_adjustment=-1))
         db.commit()
@@ -360,7 +360,7 @@ class TestCompletionRate:
         person = add_person(db, "complete")
         # 6 non-missing reports across the Mon–Sat window -> 6/6 = 100%.
         for offset in range(6):
-            add_report(db, person, date(2026, 6, 1 + offset), rating=3)
+            add_report(db, person, date(2026, 6, 1 + offset), rating=75)
         db.commit()
         metrics = metrics_for(db, person, WEEK_START, WEEK_END)
         assert metrics["report_completion_rate"] == 100.0
@@ -370,7 +370,7 @@ class TestCompletionRate:
         person = add_person(db, "halfdone")
         # 3 non-missing reports / 6 work-days -> 50%.
         for offset in range(3):
-            add_report(db, person, date(2026, 6, 1 + offset), rating=3)
+            add_report(db, person, date(2026, 6, 1 + offset), rating=75)
         db.commit()
         metrics = metrics_for(db, person, WEEK_START, WEEK_END)
         assert metrics["report_completion_rate"] == 50.0
@@ -378,7 +378,7 @@ class TestCompletionRate:
     def test_missing_reports_do_not_count_toward_completion(self):
         db = make_db()
         person = add_person(db, "missy")
-        add_report(db, person, date(2026, 6, 1), rating=3)            # counts
+        add_report(db, person, date(2026, 6, 1), rating=75)            # counts
         add_report(db, person, date(2026, 6, 2), missing=True)        # excluded
         add_report(db, person, date(2026, 6, 3), missing=True)        # excluded
         db.commit()
@@ -392,7 +392,7 @@ class TestCompletionRate:
         person = add_person(db, "sunday")
         # Window Mon 6/1 .. Sun 6/7 spans 7 calendar days but only 6 Mon–Sat work-days.
         for offset in range(6):
-            add_report(db, person, date(2026, 6, 1 + offset), rating=3)
+            add_report(db, person, date(2026, 6, 1 + offset), rating=75)
         db.commit()
         metrics = metrics_for(db, person, date(2026, 6, 1), date(2026, 6, 7))
         # 6 reports / 6 work-days (Sunday not counted) = 100%.
@@ -407,7 +407,7 @@ class TestAttendanceTimes:
     def test_avg_check_in_and_out_are_hh_mm(self):
         db = make_db()
         person = add_person(db, "timer")
-        add_report(db, person, date(2026, 6, 1), rating=3)
+        add_report(db, person, date(2026, 6, 1), rating=75)
         # Two days: 18:00 -> next-day 03:00, and 18:30 -> next-day 03:30.
         add_attendance(
             db, person, date(2026, 6, 1), "on_time",
@@ -428,7 +428,7 @@ class TestAttendanceTimes:
     def test_avg_hours_about_nine_for_evening_to_3am_pair(self):
         db = make_db()
         person = add_person(db, "niner")
-        add_report(db, person, date(2026, 6, 1), rating=3)
+        add_report(db, person, date(2026, 6, 1), rating=75)
         # 18:00 -> next-day 03:20 == 9h20m -> ~9.3h; 18:00 -> 03:00 == 9h.
         add_attendance(
             db, person, date(2026, 6, 1), "on_time",
@@ -467,8 +467,8 @@ class TestLeaderboardSort:
         strong = add_person(db, "strong", sort=1)
         weak = add_person(db, "weak", sort=2)
         for offset in range(3):
-            add_report(db, strong, date(2026, 6, 1 + offset), rating=4)  # Over
-            add_report(db, weak, date(2026, 6, 1 + offset), rating=1)    # Under
+            add_report(db, strong, date(2026, 6, 1 + offset), rating=100)  # Over
+            add_report(db, weak, date(2026, 6, 1 + offset), rating=25)    # Under
         db.commit()
         rows = compute_performance_rows(db, WEEK_START, WEEK_END)
         ordered = [p.slug for p, _ in rows if p.slug in {"strong", "weak"}]
@@ -526,8 +526,8 @@ class TestPerformanceEndpoint:
     def test_get_performance_returns_rows(self):
         client, session = _make_client()
         person = add_person(session, "abdul", "Abdul")
-        add_report(session, person, date(2026, 6, 1), rating=4)
-        add_report(session, person, date(2026, 6, 2), rating=4)
+        add_report(session, person, date(2026, 6, 1), rating=100)
+        add_report(session, person, date(2026, 6, 2), rating=100)
         session.commit()
 
         resp = client.get("/api/v1/performance?from=2026-06-01&to=2026-06-06", headers=_auth())
@@ -535,7 +535,7 @@ class TestPerformanceEndpoint:
         rows = resp.json()["data"]
         row = next(r for r in rows if r["person"]["slug"] == "abdul")
         assert row["composite_grade"] == "Over"
-        assert row["average_rating"] == 4.0
+        assert row["average_rating"] == 100.0
         assert row["avg_check_in"] is None  # no attendance rows
         assert isinstance(row["rating_trend"], list)
         assert row["rating_trend"][0]["date"] == "2026-06-01"
@@ -691,7 +691,7 @@ def test_early_leave_before_midnight_is_not_phantom_overtime() -> None:
     db = make_db()
     p = add_person(db, "early", "Early Leaver")
     for day in (date(2026, 6, 1), date(2026, 6, 2)):
-        add_report(db, p, day, rating=4)
+        add_report(db, p, day, rating=100)
         add_attendance(
             db, p, day, "late_15",
             check_in=datetime(day.year, day.month, day.day, 18, 40, tzinfo=TZ),
@@ -702,7 +702,7 @@ def test_early_leave_before_midnight_is_not_phantom_overtime() -> None:
     assert m["avg_check_out"] == "23:00"          # not a wrapped/garbage time
     assert m["compensates"] is False              # leaving early is not compensation
     assert m["avg_hours"] == 4.3                  # 18:40 -> 23:00
-    # avg 4.0 = Over(3), two lates without compensation -> -1 band = Good
+    # avg 100 = Over(3), two lates without compensation -> -1 band = Good
     assert m["composite_grade"] == "Good"
 
 
@@ -711,7 +711,7 @@ def test_after_midnight_checkout_overtime_is_correct() -> None:
     db = make_db()
     p = add_person(db, "comp", "Compensator")
     for day in (date(2026, 6, 1), date(2026, 6, 2)):
-        add_report(db, p, day, rating=4)
+        add_report(db, p, day, rating=100)
         add_attendance(
             db, p, day, "late_15",
             check_in=datetime(day.year, day.month, day.day, 18, 40, tzinfo=TZ),       # 40 min late

@@ -63,7 +63,7 @@ class Report(TimestampMixin, Base):
     __tablename__ = "reports"
     __table_args__ = (
         UniqueConstraint("person_id", "report_date", name="uq_report_person_date"),
-        CheckConstraint("rating is null or (rating >= 1 and rating <= 4)", name="ck_report_rating"),
+        CheckConstraint("rating is null or (rating >= 0 and rating <= 100)", name="ck_report_rating"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)

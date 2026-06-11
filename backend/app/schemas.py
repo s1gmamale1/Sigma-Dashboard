@@ -128,7 +128,7 @@ class ViperReportUpsert(StrictModel):
     report_date: date
     summary: str = Field(min_length=1)
     extras: str | None = None
-    rating: int | None = Field(default=None, ge=1, le=4)
+    rating: int | None = Field(default=None, ge=0, le=100)
     missing: bool = False
     source_topic: str | None = None
 

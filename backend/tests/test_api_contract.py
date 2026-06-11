@@ -121,3 +121,16 @@ def test_viper_goal_rejects_unknown_owner() -> None:
         json={"slug": "hw-notion", "title": "Notion integration", "owner_slug": "olivr"},
     )
     assert response.status_code == 422
+
+
+def test_viper_report_rating_accepts_0_100_rejects_beyond() -> None:
+    client = client_with_db()
+    payload = {
+        "person": {"slug": "abdul", "display_name": "Abdul"},
+        "report_date": "2026-06-04",
+        "summary": "scored work",
+    }
+    assert client.post("/api/v1/viper/report", json={**payload, "rating": 0}).status_code == 200
+    assert client.post("/api/v1/viper/report", json={**payload, "rating": 100}).status_code == 200
+    assert client.post("/api/v1/viper/report", json={**payload, "rating": 101}).status_code == 422
+    assert client.post("/api/v1/viper/report", json={**payload, "rating": -1}).status_code == 422
