@@ -1,3 +1,4 @@
+import logging
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -75,6 +76,8 @@ from .services import (
     upsert_report,
     week_bounds,
 )
+
+logger = logging.getLogger("sigma.routes")
 
 router = APIRouter(prefix="/api/v1")
 
@@ -803,7 +806,11 @@ def google_sheet_preview(
     try:
         preview: GoogleSheetPreview = get_sheet_preview(settings, sample_rows=sample_rows)
     except GoogleSheetError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        logger.warning("google sheet operation failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Google Sheet operation failed — see server logs",
+        ) from exc
     return ok(preview)
 
 
@@ -824,7 +831,11 @@ def google_sheet_import(
     try:
         result: GoogleSheetImportResult = import_google_sheet_dashboard_data(settings, db)
     except GoogleSheetError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        logger.warning("google sheet operation failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Google Sheet operation failed — see server logs",
+        ) from exc
     db.commit()
     return ok(result)
 
