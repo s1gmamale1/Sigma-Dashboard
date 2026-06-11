@@ -3,7 +3,7 @@
 The internal HTTP API behind the Sigma Dashboard: attendance, daily reports & performance,
 goals, and project condition for the Viper-tracked team.
 
-- **Base URL:** `http://<host>:8000` (FastAPI serves both the API and the built SPA)
+- **Base URL:** `http://<host>:8001` (FastAPI serves both the API and the built SPA)
 - **Base path:** every endpoint lives under `/api/v1`
 - **Interactive docs:** `/docs` (Swagger UI) · `/redoc` (ReDoc) · `/openapi.json` (raw OpenAPI 3.1)
 
@@ -39,16 +39,16 @@ Two schemes (both visible under **Authorize** in `/docs`):
 
 ```bash
 # 1) Log in → grab the token
-TOKEN=$(curl -s -X POST http://localhost:8000/api/v1/auth/login \
+TOKEN=$(curl -s -X POST http://localhost:8001/api/v1/auth/login \
   -H 'Content-Type: application/json' \
   -d '{"username":"admin","password":"YOUR_PASSWORD"}' | jq -r .data.access_token)
 
 # 2) Call a read endpoint
-curl -s http://localhost:8000/api/v1/dashboard/overview?shift_date=2026-06-03 \
+curl -s http://localhost:8001/api/v1/dashboard/overview?shift_date=2026-06-03 \
   -H "Authorization: Bearer $TOKEN" | jq .
 
 # 3) Viper writes a record (no login; uses the shared token)
-curl -s -X POST http://localhost:8000/api/v1/viper/attendance \
+curl -s -X POST http://localhost:8001/api/v1/viper/attendance \
   -H "X-Viper-Token: $SIGMA_VIPER_TOKEN" -H 'Content-Type: application/json' \
   -d '{"person":{"slug":"oliver","display_name":"Oliver"},
        "shift_date":"2026-06-03","check_in_at":"2026-06-03T18:02:00+05:00","status":"late"}' | jq .

@@ -54,7 +54,7 @@ npm run dev
 
 ```bash
 cd frontend && npm run build && cd ..
-python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
+python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8001
 ```
 
 ## API
