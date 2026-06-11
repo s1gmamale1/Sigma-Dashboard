@@ -376,12 +376,16 @@
   background: color-mix(in srgb, var(--danger) 14%, transparent);
 }
 .pill-absent {
-  color: var(--teal);
-  background: color-mix(in srgb, var(--teal) 16%, transparent);
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 16%, transparent);
 }
 .pill-no_show {
-  color: var(--label-secondary);
-  background: var(--fill);
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 22%, transparent);
+}
+.pill-off_day {
+  color: var(--label-tertiary);
+  background: var(--fill-2);
 }
 .pill-missing {
   color: var(--label-tertiary);

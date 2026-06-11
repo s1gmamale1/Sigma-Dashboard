@@ -8,6 +8,7 @@ const labels: Record<PillValue, string> = {
   late_15: "15+ Late",
   no_show: "No Show",
   absent: "Absent",
+  off_day: "Off",
   missing: "Missing",
   none: "None",
   needs_chase: "Needs chase",
@@ -23,7 +24,7 @@ export function StatusPill({ value }: { value: PillValue }) {
   return (
     <span className={`pill pill-${value}`}>
       <span className="pill__dot" aria-hidden="true" />
-      {labels[value]}
+      {labels[value] ?? value}
     </span>
   );
 }

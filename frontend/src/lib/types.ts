@@ -1,4 +1,4 @@
-export type Status = "on_time" | "late" | "late_15" | "no_show" | "absent";
+export type Status = "on_time" | "late" | "late_15" | "no_show" | "absent" | "off_day";
 export type ChaseState = "none" | "needs_chase" | "chased" | "resolved";
 
 export interface Envelope<T> {
