@@ -180,7 +180,7 @@ class ViperEvaluationUpsert(StrictModel):
     person: ViperPersonRef
     period_start: date
     period_end: date
-    grade: str = Field(min_length=1, max_length=24)
+    grade: Literal["Over", "Good", "Average", "Under"]
     what: str = ""
     how: str = ""
     why: str = ""

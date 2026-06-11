@@ -82,3 +82,17 @@ def test_bcrypt_admin_hash_verification() -> None:
 
     assert verify_password(settings, "short-test-password")
     assert not verify_password(settings, "wrong-password")
+
+
+def test_viper_evaluation_rejects_noncanonical_grade() -> None:
+    client = client_with_db()
+    payload = {
+        "person": {"slug": "abdul", "display_name": "Abdul"},
+        "period_start": "2026-06-02",
+        "period_end": "2026-06-07",
+        "grade": "good",  # lowercase drift — must be rejected
+    }
+    response = client.post("/api/v1/viper/evaluation", json=payload)
+    assert response.status_code == 422
+    response = client.post("/api/v1/viper/evaluation", json={**payload, "grade": "Good"})
+    assert response.status_code == 200

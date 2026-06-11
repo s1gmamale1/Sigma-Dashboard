@@ -544,19 +544,19 @@ class TestEvaluationUpsert:
         first = client.post(
             "/api/v1/viper/evaluation",
             headers=_viper(),
-            json=_eval_payload("2026-06-01", "2026-06-06", "good", "solid week"),
+            json=_eval_payload("2026-06-01", "2026-06-06", "Good", "solid week"),
         )
         assert first.status_code == 200
-        assert first.json()["data"]["grade"] == "good"
+        assert first.json()["data"]["grade"] == "Good"
 
         # Same (person, period) -> upsert overwrites grade/why, not a new row.
         second = client.post(
             "/api/v1/viper/evaluation",
             headers=_viper(),
-            json=_eval_payload("2026-06-01", "2026-06-06", "over", "even better"),
+            json=_eval_payload("2026-06-01", "2026-06-06", "Over", "even better"),
         )
         assert second.status_code == 200
-        assert second.json()["data"]["grade"] == "over"
+        assert second.json()["data"]["grade"] == "Over"
         assert second.json()["data"]["id"] == first.json()["data"]["id"]
 
         # GET evaluations in the window returns exactly one row for this person.
@@ -564,7 +564,7 @@ class TestEvaluationUpsert:
         assert listing.status_code == 200
         abdul_rows = [e for e in listing.json()["data"] if e["person"]["slug"] == "abdul"]
         assert len(abdul_rows) == 1
-        assert abdul_rows[0]["grade"] == "over"
+        assert abdul_rows[0]["grade"] == "Over"
         assert abdul_rows[0]["why"] == "even better"
 
     def test_different_period_creates_second_row(self):
@@ -572,12 +572,12 @@ class TestEvaluationUpsert:
         client.post(
             "/api/v1/viper/evaluation",
             headers=_viper(),
-            json=_eval_payload("2026-06-01", "2026-06-06", "good", "week one"),
+            json=_eval_payload("2026-06-01", "2026-06-06", "Good", "week one"),
         )
         client.post(
             "/api/v1/viper/evaluation",
             headers=_viper(),
-            json=_eval_payload("2026-06-08", "2026-06-13", "over", "week two"),
+            json=_eval_payload("2026-06-08", "2026-06-13", "Over", "week two"),
         )
         listing = client.get("/api/v1/evaluations?from=2026-06-01&to=2026-06-13", headers=_auth())
         abdul_rows = [e for e in listing.json()["data"] if e["person"]["slug"] == "abdul"]
@@ -650,7 +650,7 @@ class TestUnauthenticated:
         client, _ = _make_client()
         resp = client.post(
             "/api/v1/viper/evaluation",
-            json=_eval_payload("2026-06-01", "2026-06-06", "good", "no token"),
+            json=_eval_payload("2026-06-01", "2026-06-06", "Good", "no token"),
         )
         assert resp.status_code == 401
 
@@ -671,7 +671,7 @@ class TestUnauthenticated:
         resp = client.post(
             "/api/v1/viper/evaluation",
             headers={"X-Viper-Token": "totally-wrong-token"},
-            json=_eval_payload("2026-06-01", "2026-06-06", "good", "wrong token"),
+            json=_eval_payload("2026-06-01", "2026-06-06", "Good", "wrong token"),
         )
         assert resp.status_code == 401
 
