@@ -80,6 +80,8 @@ def calculate_attendance_status(
     on_time (0 late) · late (1..grace) · late_15 (> grace) · no_show (no check-in) ·
     absent (explicit). The 15-minute grace splits `late` from `late_15`.
     """
+    if explicit_status == "off_day":
+        return "off_day", 0
     if explicit_status in {"absent", "excused"}:
         return "absent", 0
     if check_in_at is None:

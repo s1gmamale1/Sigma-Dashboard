@@ -81,3 +81,23 @@ def test_resync_preserves_admin_chase_state() -> None:
     db.commit()
     db.refresh(record)
     assert record.chase_state == "chased"
+
+
+def test_explicit_off_day_status() -> None:
+    from backend.app.services import calculate_attendance_status
+
+    db = make_db()
+    assert calculate_attendance_status(db, date(2026, 6, 7), None, "off_day") == ("off_day", 0)
+
+
+def test_off_day_record_satisfies_check_constraint() -> None:
+    from backend.app.services import get_or_create_person
+
+    db = make_db()
+    person = get_or_create_person(db, "oliver", "Oliver")
+    db.add(
+        AttendanceRecord(
+            person_id=person.id, shift_date=date(2026, 6, 7), status="off_day", chase_state="none"
+        )
+    )
+    db.commit()  # would raise IntegrityError if off_day is not in the CHECK constraint

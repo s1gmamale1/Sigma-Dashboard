@@ -6,7 +6,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .db import Base, TimestampMixin
 
 
-ATTENDANCE_STATUSES = ("on_time", "late", "late_15", "no_show", "absent")
+ATTENDANCE_STATUSES = ("on_time", "late", "late_15", "no_show", "absent", "off_day")
 CHASE_STATES = ("none", "needs_chase", "chased", "resolved")
 GOAL_STATUSES = ("active", "overdue", "done", "paused")
 SYNC_STATUSES = ("success", "failed")

@@ -3,8 +3,9 @@ from typing import Any, Generic, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field
 
-# The 5 attendance statuses mirror the HR sheet's Status dropdown verbatim.
-AttendanceStatus = Literal["on_time", "late", "late_15", "no_show", "absent"]
+# The HR sheet's 5 Status values, plus off_day (Viper writes the literal "OFF DAY"
+# into the sheet for scheduled days off — Sundays and declared offs).
+AttendanceStatus = Literal["on_time", "late", "late_15", "no_show", "absent", "off_day"]
 ChaseState = Literal["none", "needs_chase", "chased", "resolved"]
 GoalStatus = Literal["active", "overdue", "done", "paused"]
 
