@@ -501,6 +501,7 @@ def compute_performance_rows(db: Session, start: date, end: date) -> list[tuple[
                 )
             )
         )
+        recs = [r for r in recs if r.status != "off_day"]  # off days are out of every HOW metric
         counts = {s: 0 for s in ("on_time", "late", "late_15", "no_show", "absent")}
         for r in recs:
             if r.status in counts:

@@ -148,6 +148,29 @@ def test_whole_team_sunday_off_day_row() -> None:
     assert statuses == {"oliver": "off_day", "sam": "off_day"}
 
 
+def test_off_day_excluded_from_performance_metrics() -> None:
+    from backend.app.services import compute_performance_rows, get_or_create_person
+
+    db = make_db()
+    person = get_or_create_person(db, "oliver", "Oliver")
+    db.add(
+        AttendanceRecord(
+            person_id=person.id, shift_date=date(2026, 6, 1), status="on_time", chase_state="none"
+        )
+    )
+    db.add(
+        AttendanceRecord(
+            person_id=person.id, shift_date=date(2026, 6, 7), status="off_day", chase_state="none"
+        )
+    )
+    db.commit()
+
+    rows = compute_performance_rows(db, date(2026, 6, 1), date(2026, 6, 7))
+    metrics = next(m for p, m in rows if p.slug == "oliver")
+    assert metrics["punctuality_rate"] == 100.0  # off_day must not dilute the denominator
+    assert metrics["attendance_days"] == 1       # off_day is not an attendance day
+
+
 def test_explicit_off_day_status() -> None:
     from backend.app.services import calculate_attendance_status
 
