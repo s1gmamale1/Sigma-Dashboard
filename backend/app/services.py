@@ -49,6 +49,22 @@ def get_or_create_person(db: Session, slug: str, display_name: str) -> Person:
     return person
 
 
+class UnknownPersonError(ValueError):
+    """A Viper write referenced a person slug that is not in the roster."""
+
+
+def require_known_person(db: Session, slug: str, display_name: str = "") -> Person:
+    """Viper writes must reference an existing roster member — a typo'd slug must
+    422, not silently spawn a phantom person. (The sheet importer keeps
+    get_or_create_person: the sheet's name row is the roster source of truth.)"""
+    person = db.scalar(select(Person).where(Person.slug == slug))
+    if person is None:
+        raise UnknownPersonError(f"unknown person slug: '{slug}'")
+    if display_name and person.display_name != display_name:
+        person.display_name = display_name
+    return person
+
+
 def get_active_policy(db: Session) -> AttendancePolicy:
     policy = db.scalar(select(AttendancePolicy).order_by(AttendancePolicy.id.asc()).limit(1))
     if policy is None:
@@ -97,7 +113,7 @@ def calculate_attendance_status(
 
 
 def upsert_attendance(db: Session, payload: ViperAttendanceUpsert) -> AttendanceRecord:
-    person = get_or_create_person(db, payload.person.slug, payload.person.display_name)
+    person = require_known_person(db, payload.person.slug, payload.person.display_name)
     status, minutes_late = calculate_attendance_status(
         db, payload.shift_date, payload.check_in_at, payload.status
     )
@@ -121,7 +137,7 @@ def upsert_attendance(db: Session, payload: ViperAttendanceUpsert) -> Attendance
 
 
 def upsert_report(db: Session, payload: ViperReportUpsert) -> Report:
-    person = get_or_create_person(db, payload.person.slug, payload.person.display_name)
+    person = require_known_person(db, payload.person.slug, payload.person.display_name)
     report = db.scalar(
         select(Report).where(Report.person_id == person.id, Report.report_date == payload.report_date)
     )
@@ -140,8 +156,7 @@ def upsert_report(db: Session, payload: ViperReportUpsert) -> Report:
 def upsert_goal(db: Session, payload: ViperGoalUpsert) -> Goal:
     owner_id = None
     if payload.owner_slug:
-        person = db.scalar(select(Person).where(Person.slug == payload.owner_slug))
-        owner_id = person.id if person else None
+        owner_id = require_known_person(db, payload.owner_slug).id
     goal = db.scalar(select(Goal).where(Goal.slug == payload.slug))
     if goal is None:
         goal = Goal(slug=payload.slug, title=payload.title)
@@ -583,7 +598,7 @@ def compute_performance_rows(db: Session, start: date, end: date) -> list[tuple[
 
 
 def upsert_evaluation(db: Session, payload: ViperEvaluationUpsert) -> Evaluation:
-    person = get_or_create_person(db, payload.person.slug, payload.person.display_name)
+    person = require_known_person(db, payload.person.slug, payload.person.display_name)
     ev = db.scalar(
         select(Evaluation).where(
             Evaluation.person_id == person.id,
@@ -606,7 +621,7 @@ def upsert_evaluation(db: Session, payload: ViperEvaluationUpsert) -> Evaluation
 
 
 def create_feedback(db: Session, payload: ViperFeedbackUpsert) -> Feedback:
-    person = get_or_create_person(db, payload.person.slug, payload.person.display_name)
+    person = require_known_person(db, payload.person.slug, payload.person.display_name)
     fb = Feedback(
         person_id=person.id,
         feedback_date=payload.feedback_date,

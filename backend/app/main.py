@@ -17,6 +17,7 @@ from .bootstrap import init_db
 from .config import get_settings, validate_runtime_secrets
 from .db import engine
 from .routes import router
+from .services import UnknownPersonError
 from .schemas import Envelope, ErrorBody
 
 # Use uvicorn's logger so scheduler + sync messages appear in the normal server output.
@@ -135,6 +136,10 @@ def create_app() -> FastAPI:
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(_: Request, exc: RequestValidationError) -> JSONResponse:
         return error_response(422, "VALIDATION_ERROR", "Request validation failed", {"errors": exc.errors()})
+
+    @app.exception_handler(UnknownPersonError)
+    async def unknown_person_handler(_: Request, exc: UnknownPersonError) -> JSONResponse:
+        return error_response(422, "UNKNOWN_PERSON", str(exc))
 
     app.include_router(router)
 

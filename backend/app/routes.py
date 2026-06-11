@@ -698,7 +698,7 @@ def viper_attendance(
     _: str = Depends(require_viper),
 ) -> Envelope:
     """Idempotent upsert of one person's attendance for a shift day (keyed on person + date).
-    The person is created on first sight. The attendance status is derived server-side."""
+    The person must already be in the roster (422 otherwise). The status is derived server-side."""
     record = upsert_attendance(db, payload)
     db.commit()
     db.refresh(record)

@@ -18,7 +18,7 @@ from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
@@ -51,6 +51,9 @@ def make_db() -> Session:
 
 
 def add_person(db: Session, slug: str, name: str | None = None, sort: int = 1) -> Person:
+    existing = db.scalar(select(Person).where(Person.slug == slug))
+    if existing is not None:
+        return existing
     person = Person(slug=slug, display_name=name or slug.title(), active=True, sort_order=sort)
     db.add(person)
     db.flush()
@@ -485,6 +488,7 @@ def _make_client() -> tuple[TestClient, Session]:
     Base.metadata.create_all(engine)
     session = Session(engine)
     seed_db(session)
+    add_person(session, "abdul", "Abdul")
     session.commit()
 
     def override_db():

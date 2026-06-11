@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 from backend.app.bootstrap import seed_db
+from backend.app.models import Person
 from backend.app.config import Settings
 from backend.app.db import Base, get_db
 from backend.app.main import app
@@ -22,6 +23,7 @@ def client_with_db() -> TestClient:
     Base.metadata.create_all(engine)
     session = Session(engine)
     seed_db(session)
+    session.add(Person(slug="abdul", display_name="Abdul", active=True, sort_order=1))
     session.commit()
 
     def override_db():
@@ -96,3 +98,26 @@ def test_viper_evaluation_rejects_noncanonical_grade() -> None:
     assert response.status_code == 422
     response = client.post("/api/v1/viper/evaluation", json={**payload, "grade": "Good"})
     assert response.status_code == 200
+
+
+def test_viper_rejects_unknown_person_slug() -> None:
+    client = client_with_db()
+    response = client.post(
+        "/api/v1/viper/report",
+        json={
+            "person": {"slug": "olivr", "display_name": "Olivr"},  # typo slug
+            "report_date": "2026-06-03",
+            "summary": "did things",
+        },
+    )
+    assert response.status_code == 422
+    assert "olivr" in response.json()["error"]["message"]
+
+
+def test_viper_goal_rejects_unknown_owner() -> None:
+    client = client_with_db()
+    response = client.post(
+        "/api/v1/viper/goal",
+        json={"slug": "hw-notion", "title": "Notion integration", "owner_slug": "olivr"},
+    )
+    assert response.status_code == 422

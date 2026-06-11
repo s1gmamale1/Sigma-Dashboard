@@ -8,7 +8,7 @@ from backend.app.bootstrap import seed_db
 from backend.app.db import Base
 from backend.app.models import AttendanceRecord
 from backend.app.schemas import ViperAttendanceUpsert, ViperPersonRef
-from backend.app.services import upsert_attendance
+from backend.app.services import get_or_create_person, upsert_attendance
 
 TZ = ZoneInfo("Asia/Tashkent")
 
@@ -18,6 +18,8 @@ def make_db() -> Session:
     Base.metadata.create_all(engine)
     session = Session(engine)
     seed_db(session)
+    get_or_create_person(session, "abdul", "Abdul")
+    get_or_create_person(session, "no-show", "No Show")
     session.commit()
     return session
 
