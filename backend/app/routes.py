@@ -1,10 +1,11 @@
 import logging
 from datetime import date, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from . import ratelimit
 from .attendance_sheet import import_attendance_sheet
 from .auth import create_access_token, require_admin, require_viper, verify_password
 from .config import Settings, get_settings
@@ -166,11 +167,22 @@ def build_project_out(db: Session, topic: ProjectTopic) -> ProjectConditionOut:
     summary="Log in as admin",
     responses={**UNAUTHORIZED},
 )
-def login(payload: LoginRequest, db: Session = Depends(get_db), settings: Settings = Depends(get_settings)) -> Envelope:
+def login(
+    payload: LoginRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> Envelope:
     """Exchange an admin username + password for a bearer JWT.
 
     Returns `data.access_token` (send it as `Authorization: Bearer <token>`) and `data.expires_at`.
     """
+    client_key = request.client.host if request.client else "unknown"
+    if not ratelimit.allow(client_key):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many login attempts — try again in a minute",
+        )
     if payload.username != settings.admin_username or not verify_password(settings, payload.password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username or password")
     token, expires_at = create_access_token(settings, settings.admin_username)

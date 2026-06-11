@@ -40,3 +40,28 @@ def test_placeholder_secrets_rejected() -> None:
     with pytest.raises(RuntimeError, match="SIGMA_VIPER_TOKEN"):
         validate_runtime_secrets(make_settings(viper_token="change-me-viper-token"))
     validate_runtime_secrets(make_settings())  # real-looking secrets pass
+
+
+def test_login_rate_limited_after_five_attempts() -> None:
+    from fastapi.testclient import TestClient
+
+    from backend.app import ratelimit
+    from backend.app.config import get_settings
+    from backend.app.main import app
+
+    app.dependency_overrides[get_settings] = lambda: make_settings()
+    ratelimit.reset()
+    try:
+        client = TestClient(app)
+        for _ in range(5):
+            response = client.post(
+                "/api/v1/auth/login", json={"username": "admin", "password": "wrong"}
+            )
+            assert response.status_code == 401
+        response = client.post(
+            "/api/v1/auth/login", json={"username": "admin", "password": "wrong"}
+        )
+        assert response.status_code == 429
+    finally:
+        app.dependency_overrides.pop(get_settings, None)
+        ratelimit.reset()
