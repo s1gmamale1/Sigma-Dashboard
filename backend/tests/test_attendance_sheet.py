@@ -83,6 +83,51 @@ def test_resync_preserves_admin_chase_state() -> None:
     assert record.chase_state == "chased"
 
 
+def test_off_day_cell_creates_off_day_record() -> None:
+    db = make_db()
+    grid = [row[:] for row in GRID]
+    grid.append(["2026-06-03", "OFF DAY", "", "", "18:00", "", "On time"])  # Oliver declared off
+    apply_attendance_rows(db, parse_attendance_grid(grid), TZ)
+    db.commit()
+
+    record = db.scalar(
+        select(AttendanceRecord)
+        .join(Person)
+        .where(Person.slug == "oliver", AttendanceRecord.shift_date == date(2026, 6, 3))
+    )
+    assert record is not None
+    assert record.status == "off_day"
+    assert record.check_in_at is None and record.check_out_at is None
+    assert record.minutes_late == 0
+
+
+def test_off_day_overwrites_stale_no_show() -> None:
+    """P0 regression: a no_show imported earlier must be replaced when the same
+    (person, date) cell is later declared OFF DAY — not silently kept."""
+    db = make_db()
+    apply_attendance_rows(db, parse_attendance_grid(GRID), TZ)
+    db.commit()
+    # Sam 2026-06-01 imported as no_show (from GRID). Admin had chased it.
+    record = db.scalar(
+        select(AttendanceRecord)
+        .join(Person)
+        .where(Person.slug == "sam", AttendanceRecord.shift_date == date(2026, 6, 1))
+    )
+    assert record.status == "no_show"
+    record.chase_state = "chased"
+    db.commit()
+
+    resync = [row[:] for row in GRID]
+    resync[3] = ["2026-06-01", "18:00", "", "On time", "OFF DAY", "", ""]  # Sam's day declared OFF
+    apply_attendance_rows(db, parse_attendance_grid(resync), TZ)
+    db.commit()
+
+    db.refresh(record)
+    assert record.status == "off_day"
+    assert record.check_in_at is None
+    assert record.chase_state == "chased"  # admin-owned fields preserved
+
+
 def test_explicit_off_day_status() -> None:
     from backend.app.services import calculate_attendance_status
 

@@ -114,6 +114,15 @@ def _normalize_status(value: str) -> str:
     return text
 
 
+OFF_DAY_TEXT = "off day"
+
+
+def _is_off_day(arrival: str, status_text: str) -> bool:
+    """Viper marks scheduled days off by writing the literal 'OFF DAY' into the
+    arrival cell (per-person) or status cell; either marks the day off."""
+    return _normalize_status(arrival) == OFF_DAY_TEXT or _normalize_status(status_text) == OFF_DAY_TEXT
+
+
 def _minutes_late(db: Session, shift_date: date, check_in_at: datetime | None) -> int:
     if check_in_at is None:
         return 0
@@ -150,15 +159,22 @@ def classify_sheet_row(
 
 def _upsert_row(db: Session, row: SheetAttendanceRow, tz: ZoneInfo) -> bool:
     person = get_or_create_person(db, row.slug, row.display_name)
-    check_in = _combine(row.shift_date, row.arrival, tz)
-    check_out = _combine(row.shift_date, row.out, tz)
-    if check_in and check_out and check_out < check_in:
-        check_out = check_out + timedelta(days=1)  # shift crosses midnight (out ~03:00)
+    if _is_off_day(row.arrival, row.status_text):
+        # An OFF DAY upserts a real record so a stale no_show/late imported earlier
+        # for this (person, date) is overwritten, never silently kept.
+        check_in: datetime | None = None
+        check_out: datetime | None = None
+        status, minutes_late = "off_day", 0
+    else:
+        check_in = _combine(row.shift_date, row.arrival, tz)
+        check_out = _combine(row.shift_date, row.out, tz)
+        if check_in and check_out and check_out < check_in:
+            check_out = check_out + timedelta(days=1)  # shift crosses midnight (out ~03:00)
 
-    classified = classify_sheet_row(db, row.shift_date, check_in, row.status_text)
-    if classified is None:
-        return False
-    status, minutes_late = classified
+        classified = classify_sheet_row(db, row.shift_date, check_in, row.status_text)
+        if classified is None:
+            return False
+        status, minutes_late = classified
 
     record = db.scalar(
         select(AttendanceRecord).where(
