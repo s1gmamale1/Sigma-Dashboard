@@ -128,6 +128,26 @@ def test_off_day_overwrites_stale_no_show() -> None:
     assert record.chase_state == "chased"  # admin-owned fields preserved
 
 
+def test_whole_team_sunday_off_day_row() -> None:
+    """Viper writes 'OFF DAY' into col B and clears the rest of the row for a
+    team-wide Sunday off. Every person must get an off_day record."""
+    db = make_db()
+    grid = [row[:] for row in GRID]
+    grid.append(["2026-06-07", "OFF DAY", "", "", "", "", ""])
+    rows = parse_attendance_grid(grid)
+
+    sunday_rows = [r for r in rows if r.shift_date == date(2026, 6, 7)]
+    assert sorted(r.slug for r in sunday_rows) == ["oliver", "sam"]
+
+    apply_attendance_rows(db, rows, TZ)
+    db.commit()
+    statuses = {
+        db.get(Person, r.person_id).slug: r.status
+        for r in db.scalars(select(AttendanceRecord).where(AttendanceRecord.shift_date == date(2026, 6, 7)))
+    }
+    assert statuses == {"oliver": "off_day", "sam": "off_day"}
+
+
 def test_explicit_off_day_status() -> None:
     from backend.app.services import calculate_attendance_status
 

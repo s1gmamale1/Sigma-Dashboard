@@ -95,6 +95,24 @@ def parse_attendance_grid(values: list[list[str]]) -> list[SheetAttendanceRow]:
         day = _parse_date(str(raw[0]).strip()) if raw and str(raw[0]).strip() else None
         if day is None:
             continue
+        # Team-wide OFF DAY: Viper writes 'OFF DAY' in the first person's arrival
+        # column (col B) and clears the rest of the row.
+        if blocks:
+            first_col = blocks[0][0]
+            first_cell = str(raw[first_col]).strip() if first_col < len(raw) else ""
+            other_cols = [
+                c
+                for col, _, _ in blocks
+                for c in (col, col + 1, col + 2)
+                if c != first_col
+            ]
+            others_blank = all(
+                not (str(raw[c]).strip() if c < len(raw) else "") for c in other_cols
+            )
+            if _normalize_status(first_cell) == OFF_DAY_TEXT and others_blank:
+                for col, slug, name in blocks:
+                    rows.append(SheetAttendanceRow(slug, name, day, "OFF DAY", "", ""))
+                continue
         for col, slug, name in blocks:
             arrival = str(raw[col]).strip() if col < len(raw) else ""
             out = str(raw[col + 1]).strip() if col + 1 < len(raw) else ""
