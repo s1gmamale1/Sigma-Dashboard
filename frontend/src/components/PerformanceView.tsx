@@ -47,7 +47,7 @@ function pct(value: number): string {
 }
 
 function ratingLabel(value: number | null): string {
-  return value == null ? "—" : value.toFixed(1);
+  return value == null ? "—" : pct(value);
 }
 
 function timeLabel(value: string | null): string {

@@ -2,11 +2,11 @@ import { useId } from "react";
 import { useReducedMotion } from "../hooks/useReducedMotion";
 import type { RatingPoint } from "../lib/types";
 
-const RATING_MIN = 1;
-const RATING_MAX = 4;
+const RATING_MIN = 0;
+const RATING_MAX = 100;
 
 /**
- * Tiny inline SVG line/area chart of a rating trend (x = index, y = rating 1..4).
+ * Tiny inline SVG line/area chart of a rating trend (x = index, y = score 0..100).
  * Values are finite-coerced and clamped so a missing/NaN datum can never produce
  * invalid SVG geometry (NaN path coords). Reduced-motion friendly.
  */
@@ -33,7 +33,7 @@ export function Sparkline({
   const label =
     ariaLabel ??
     (ratings.length
-      ? `Rating trend, ${ratings.length} points, latest ${ratings[ratings.length - 1]} of ${RATING_MAX}`
+      ? `Rating trend, ${ratings.length} points, latest ${ratings[ratings.length - 1]}%`
       : "No rating trend");
 
   if (ratings.length === 0) {

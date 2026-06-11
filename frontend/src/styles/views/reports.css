@@ -31,20 +31,25 @@
   gap: var(--sp-2);
 }
 
-.rating-dots {
-  display: inline-flex;
-  gap: 4px;
+.rating-score {
+  font-weight: 600;
+  color: var(--label-secondary);
 }
 
-.rating-dots .dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--fill);
+.rating-score--over {
+  color: var(--success);
 }
 
-.rating-dots .dot.is-on {
-  background: var(--accent);
+.rating-score--good {
+  color: var(--accent);
+}
+
+.rating-score--average {
+  color: var(--warning);
+}
+
+.rating-score--under {
+  color: var(--danger);
 }
 
 .rank-row {
