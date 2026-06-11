@@ -1,3 +1,4 @@
+import secrets
 from datetime import datetime, timedelta, timezone
 
 from fastapi import Depends, HTTPException, status
@@ -22,7 +23,10 @@ def verify_password(settings: Settings, password: str) -> bool:
         if len(password_bytes) > MAX_BCRYPT_PASSWORD_BYTES:
             return False
         return bcrypt.checkpw(password_bytes, settings.admin_password_hash.encode("utf-8"))
-    return bool(settings.admin_password and password == settings.admin_password)
+    return bool(
+        settings.admin_password
+        and secrets.compare_digest(password.encode("utf-8"), settings.admin_password.encode("utf-8"))
+    )
 
 
 def create_access_token(settings: Settings, subject: str) -> tuple[str, datetime]:
@@ -61,6 +65,8 @@ def require_viper(
     settings: Settings = Depends(get_settings),
 ) -> str:
     token = x_viper_token or (credentials.credentials if credentials else None)
-    if not token or token != settings.viper_token:
+    if not token or not secrets.compare_digest(
+        token.encode("utf-8"), settings.viper_token.encode("utf-8")
+    ):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Viper token")
     return "viper"
