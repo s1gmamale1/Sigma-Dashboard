@@ -12,7 +12,8 @@ Seven tabs (`frontend/src/App.tsx`):
 - **Attendance** — tonight's roster with check-in **and check-out** times and minutes-late, a
   person × day history grid (each cell shows in/out), the weekly lateness chart, and per-record
   chase state.
-- **Reports** — each person's daily report (summary, extras, 1–4 rating, missing flag).
+- **Reports** — each person's daily report (summary, extras, 0–100 rating, missing flag).
+  When the selected day has no reports yet, the tab falls back to the most recent day that does.
 - **Performance** — a best→worst **What / How / Why** leaderboard over a Week / Month / Custom
   range: composite grade, rating-trend sparkline, attendance counts, punctuality, average hours,
   the latest evaluation narrative, and feedback notes.

@@ -1,4 +1,5 @@
 import type { Report } from "../lib/types";
+import { shortDate } from "../lib/dates";
 import { Card } from "./Card";
 import { EmptyState } from "./EmptyState";
 import { SectionHeader } from "./SectionHeader";
@@ -27,24 +28,39 @@ function RatingScore({ rating }: { rating: number | null }) {
   );
 }
 
-export function ReportsView({ reports }: { reports: Report[] }) {
+export function ReportsView({
+  reports,
+  requestedDate,
+  fallbackDate
+}: {
+  reports: Report[];
+  /** The globally selected date the user asked for. */
+  requestedDate?: string;
+  /** The earlier date actually being shown when it differs from requestedDate; otherwise null. */
+  fallbackDate?: string | null;
+}) {
+  const showBanner = !!fallbackDate && !!requestedDate && fallbackDate !== requestedDate;
   return (
     <section className="view-grid">
       <Card wide>
         <SectionHeader title="Daily reports" />
+        {showBanner ? (
+          <p className="reports-fallback-banner" role="status">
+            No reports filed for {shortDate(requestedDate!)} yet — showing {shortDate(fallbackDate!)}.
+          </p>
+        ) : null}
         {reports.length ? (
           <div className="report-grid">
             {reports.map((report) => (
               <article className="report-card" key={report.id}>
                 <div>
                   <strong>{report.person.display_name}</strong>
-                  <span className="muted">{report.source_topic ?? "No topic"}</span>
                 </div>
                 <p>{report.summary}</p>
                 {report.extras ? <small className="muted">{report.extras}</small> : null}
                 <footer className="report-card__foot">
                   <RatingScore rating={report.rating} />
-                  {report.missing ? <StatusPill value="missing" /> : <span className="muted">Submitted</span>}
+                  {report.missing ? <StatusPill value="missing" /> : null}
                 </footer>
               </article>
             ))}

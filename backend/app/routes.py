@@ -379,7 +379,7 @@ def get_daily_reports(
     db: Session = Depends(get_db),
     _: str = Depends(require_admin),
 ) -> Envelope:
-    """Each person's report for the given day — summary, extras, rating (1–4), missing
+    """Each person's report for the given day — summary, extras, rating (0–100), missing
     flag, source topic, and their active assignments."""
     reports = list(
         db.scalars(
@@ -409,7 +409,10 @@ def get_daily_reports(
                 assignments=assignments,
             )
         )
-    return ok(result)
+    latest = db.scalar(
+        select(func.max(Report.report_date)).where(Report.report_date <= report_date)
+    )
+    return ok(result, {"latest_report_date": latest.isoformat() if latest else None})
 
 
 def evaluation_out(evaluation: Evaluation, person: Person) -> EvaluationOut:

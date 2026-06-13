@@ -42,18 +42,27 @@ export interface Session {
   expires_at: string;
 }
 
-export async function apiFetch<T>(path: string, token: string | null, init: RequestInit = {}): Promise<T> {
+export async function apiFetchEnvelope<T, M = Record<string, unknown>>(
+  path: string,
+  token: string | null,
+  init: RequestInit = {}
+): Promise<{ data: T; meta: M }> {
   const headers = new Headers(init.headers);
   headers.set("Accept", "application/json");
   if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
   const response = await fetch(path, { ...init, headers });
-  const envelope = (await response.json()) as Envelope<T>;
+  const envelope = (await response.json()) as Envelope<T> & { meta: M };
   if (!response.ok || envelope.error) {
     throw new Error(envelope.error?.message ?? `Request failed with ${response.status}`);
   }
-  return envelope.data;
+  return { data: envelope.data, meta: envelope.meta };
+}
+
+export async function apiFetch<T>(path: string, token: string | null, init: RequestInit = {}): Promise<T> {
+  const { data } = await apiFetchEnvelope<T>(path, token, init);
+  return data;
 }
 
 export async function login(username: string, password: string): Promise<Session> {
@@ -78,7 +87,16 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify({ chase_state })
     }),
-  reports: (token: string, date: string) => apiFetch<Report[]>(`/api/v1/reports/daily?date=${date}`, token),
+  reports: async (
+    token: string,
+    date: string
+  ): Promise<{ reports: Report[]; latestReportDate: string | null }> => {
+    const { data, meta } = await apiFetchEnvelope<Report[], { latest_report_date: string | null }>(
+      `/api/v1/reports/daily?date=${date}`,
+      token
+    );
+    return { reports: data, latestReportDate: meta?.latest_report_date ?? null };
+  },
   performance: (token: string, from: string, to: string) =>
     apiFetch<PerformanceRow[]>(`/api/v1/performance?from=${from}&to=${to}`, token),
   evaluations: (token: string, from: string, to: string) =>

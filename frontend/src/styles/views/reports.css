@@ -1,5 +1,14 @@
 /* reports */
 
+.reports-fallback-banner {
+  margin: 0 0 var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--fill);
+  border-radius: var(--r-control);
+  color: var(--label-secondary);
+  font-size: var(--type-footnote);
+}
+
 .report-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));

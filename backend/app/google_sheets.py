@@ -329,7 +329,7 @@ def _import_report_rows(db: Session, rows: list[dict[str, str]]) -> int:
                 report_date=report_date,
                 summary=summary,
                 extras=_value(row, "extras"),
-                rating=_clamp(_parse_int(_value(row, "rating"), 0), 1, 4)
+                rating=_clamp(_parse_int(_value(row, "rating"), 0), 0, 100)
                 if _value(row, "rating")
                 else None,
                 missing=_parse_bool(_value(row, "missing")),

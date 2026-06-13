@@ -103,6 +103,19 @@ function AuthenticatedDashboard({ token, logout }: { token: string; logout: () =
     queryKey: ["reports", selectedDate],
     queryFn: () => api.reports(token, selectedDate)
   });
+  // Graceful fallback: if the selected date has no reports but an earlier date does,
+  // fetch that earlier date's reports too — without mutating the global selectedDate.
+  const latestReportDate = reports.data?.latestReportDate ?? null;
+  const needsFallback =
+    !!reports.data &&
+    reports.data.reports.length === 0 &&
+    latestReportDate !== null &&
+    latestReportDate !== selectedDate;
+  const fallbackReports = useQuery({
+    queryKey: ["reports", latestReportDate],
+    queryFn: () => api.reports(token, latestReportDate as string),
+    enabled: needsFallback
+  });
   const performance = useQuery({
     queryKey: ["performance", perfPeriod.from, perfPeriod.to],
     queryFn: () => api.performance(token, perfPeriod.from, perfPeriod.to)
@@ -127,7 +140,7 @@ function AuthenticatedDashboard({ token, logout }: { token: string; logout: () =
   const activeQueries = {
     overview: [overview],
     attendance: [today, history, weekly],
-    reports: [reports],
+    reports: needsFallback ? [reports, fallbackReports] : [reports],
     performance: [performance, evaluations, feedback],
     goals: [goals],
     projects: [projects],
@@ -166,7 +179,19 @@ function AuthenticatedDashboard({ token, logout }: { token: string; logout: () =
             weekly={weekly.data}
           />
         ) : null}
-        {active === "reports" && reports.data ? <ReportsView reports={reports.data} /> : null}
+        {active === "reports" && reports.data
+          ? (() => {
+              const showFallback = needsFallback && !!fallbackReports.data;
+              const shown = showFallback ? fallbackReports.data! : reports.data;
+              return (
+                <ReportsView
+                  reports={shown.reports}
+                  requestedDate={selectedDate}
+                  fallbackDate={showFallback ? latestReportDate : null}
+                />
+              );
+            })()
+          : null}
         {active === "performance" && performance.data && evaluations.data && feedback.data ? (
           <PerformanceView
             token={token}

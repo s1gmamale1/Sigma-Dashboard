@@ -134,3 +134,47 @@ def test_viper_report_rating_accepts_0_100_rejects_beyond() -> None:
     assert client.post("/api/v1/viper/report", json={**payload, "rating": 100}).status_code == 200
     assert client.post("/api/v1/viper/report", json={**payload, "rating": 101}).status_code == 422
     assert client.post("/api/v1/viper/report", json={**payload, "rating": -1}).status_code == 422
+
+
+def test_daily_reports_meta_latest_on_seeded_date() -> None:
+    client = client_with_db()
+    write = client.post(
+        "/api/v1/viper/report",
+        json={
+            "person": {"slug": "abdul", "display_name": "Abdul"},
+            "report_date": "2026-06-05",
+            "summary": "shipped the meta hint",
+            "rating": 88,
+        },
+    )
+    assert write.status_code == 200
+
+    read = client.get("/api/v1/reports/daily?date=2026-06-05")
+    body = read.json()
+
+    assert read.status_code == 200
+    assert body["error"] is None
+    assert body["data"]  # non-empty: the queried date has a report
+    assert body["meta"]["latest_report_date"] == "2026-06-05"
+
+
+def test_daily_reports_meta_latest_falls_back_on_empty_date() -> None:
+    client = client_with_db()
+    write = client.post(
+        "/api/v1/viper/report",
+        json={
+            "person": {"slug": "abdul", "display_name": "Abdul"},
+            "report_date": "2026-06-05",
+            "summary": "the most recent report on or before the future query",
+            "rating": 51,
+        },
+    )
+    assert write.status_code == 200
+
+    read = client.get("/api/v1/reports/daily?date=2026-06-09")
+    body = read.json()
+
+    assert read.status_code == 200
+    assert body["error"] is None
+    assert body["data"] == []  # the queried (later) date has no reports
+    assert body["meta"]["latest_report_date"] == "2026-06-05"  # fallback to most recent prior

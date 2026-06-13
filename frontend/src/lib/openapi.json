@@ -419,7 +419,7 @@
           "Reports"
         ],
         "summary": "Daily reports",
-        "description": "Each person's report for the given day \u2014 summary, extras, rating (1\u20134), missing\nflag, source topic, and their active assignments.",
+        "description": "Each person's report for the given day \u2014 summary, extras, rating (0\u2013100), missing\nflag, source topic, and their active assignments.",
         "operationId": "get_daily_reports_api_v1_reports_daily_get",
         "security": [
           {
@@ -1313,7 +1313,7 @@
           "Viper ingest"
         ],
         "summary": "Upsert attendance (Viper)",
-        "description": "Idempotent upsert of one person's attendance for a shift day (keyed on person + date).\nThe person is created on first sight. The attendance status is derived server-side.",
+        "description": "Idempotent upsert of one person's attendance for a shift day (keyed on person + date).\nThe person must already be in the roster (422 otherwise). The status is derived server-side.",
         "operationId": "viper_attendance_api_v1_viper_attendance_post",
         "requestBody": {
           "content": {
@@ -1760,7 +1760,8 @@
                   "late",
                   "late_15",
                   "no_show",
-                  "absent"
+                  "absent",
+                  "off_day"
                 ]
               },
               {
@@ -1869,7 +1870,8 @@
               "late",
               "late_15",
               "no_show",
-              "absent"
+              "absent",
+              "off_day"
             ],
             "title": "Status"
           },
@@ -3860,7 +3862,8 @@
                   "late",
                   "late_15",
                   "no_show",
-                  "absent"
+                  "absent",
+                  "off_day"
                 ]
               },
               {
@@ -3920,8 +3923,12 @@
           },
           "grade": {
             "type": "string",
-            "maxLength": 24,
-            "minLength": 1,
+            "enum": [
+              "Over",
+              "Good",
+              "Average",
+              "Under"
+            ],
             "title": "Grade"
           },
           "what": {
@@ -4211,8 +4218,8 @@
             "anyOf": [
               {
                 "type": "integer",
-                "maximum": 4.0,
-                "minimum": 1.0
+                "maximum": 100.0,
+                "minimum": 0.0
               },
               {
                 "type": "null"

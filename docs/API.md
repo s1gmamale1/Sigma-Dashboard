@@ -82,7 +82,7 @@ after-midnight ~03:00 checkout, `null` until the next-day sync fills it in), alo
 ### Reports
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| `GET` | `/reports/daily?date=` | Admin | Each person's report for the day (summary, rating 1–4, missing flag, assignments). |
+| `GET` | `/reports/daily?date=` | Admin | Each person's report for the day (summary, rating 0–100, missing flag, assignments). `meta.latest_report_date` carries the most recent report date ≤ `date` (or `null`) so the UI can fall back when the day is empty. |
 
 ### Performance
 A strict WHAT (output) / HOW (work pattern) / WHY (verdict) view per person over `[from, to]`.

@@ -140,7 +140,7 @@ export interface paths {
         };
         /**
          * Daily reports
-         * @description Each person's report for the given day — summary, extras, rating (1–4), missing
+         * @description Each person's report for the given day — summary, extras, rating (0–100), missing
          *     flag, source topic, and their active assignments.
          */
         get: operations["get_daily_reports_api_v1_reports_daily_get"];
@@ -398,7 +398,7 @@ export interface paths {
         /**
          * Upsert attendance (Viper)
          * @description Idempotent upsert of one person's attendance for a shift day (keyed on person + date).
-         *     The person is created on first sight. The attendance status is derived server-side.
+         *     The person must already be in the roster (422 otherwise). The status is derived server-side.
          */
         post: operations["viper_attendance_api_v1_viper_attendance_post"];
         delete?: never;
@@ -564,7 +564,7 @@ export interface components {
              */
             date: string;
             /** Status */
-            status: ("on_time" | "late" | "late_15" | "no_show" | "absent") | "missing";
+            status: ("on_time" | "late" | "late_15" | "no_show" | "absent" | "off_day") | "missing";
             /** Check In At */
             check_in_at?: string | null;
             /** Check Out At */
@@ -594,7 +594,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "on_time" | "late" | "late_15" | "no_show" | "absent";
+            status: "on_time" | "late" | "late_15" | "no_show" | "absent" | "off_day";
             /** Minutes Late */
             minutes_late: number;
             /**
@@ -1259,7 +1259,7 @@ export interface components {
              * Status
              * @example late_15
              */
-            status?: ("on_time" | "late" | "late_15" | "no_show" | "absent") | null;
+            status?: ("on_time" | "late" | "late_15" | "no_show" | "absent" | "off_day") | null;
             /**
              * Chase State
              * @default none
@@ -1282,8 +1282,11 @@ export interface components {
              * Format: date
              */
             period_end: string;
-            /** Grade */
-            grade: string;
+            /**
+             * Grade
+             * @enum {string}
+             */
+            grade: "Over" | "Good" | "Average" | "Under";
             /**
              * What
              * @default
