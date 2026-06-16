@@ -2,8 +2,10 @@ from sqlalchemy import select, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
+from .auth import hash_password
+from .config import Settings, get_settings
 from .db import Base, engine, utc_now
-from .models import AttendancePolicy, AuditLog, ProjectTopic
+from .models import AttendancePolicy, AuditLog, ProjectTopic, User
 
 SEEDED_TOPICS = ("3", "5639", "9", "5631", "3569")
 
@@ -85,7 +87,35 @@ def init_db() -> None:
     Base.metadata.create_all(bind=engine)
     with Session(engine) as db:
         seed_db(db)
+        seed_users(db, get_settings())
         db.commit()
+
+
+def seed_users(db: Session, settings: Settings) -> None:
+    """Bootstrap the accounts table from the legacy single-admin env config.
+
+    Runs only when the table is empty: the env admin (`SIGMA_ADMIN_USERNAME` +
+    `SIGMA_ADMIN_PASSWORD_HASH`/`SIGMA_ADMIN_PASSWORD`) becomes the first `admin`
+    user so existing logins keep working. Additional users are created through the
+    admin Users UI / `scripts/create_user.py`, never hard-coded here."""
+    if db.scalar(select(User.id).limit(1)) is not None:
+        return
+    password_hash = settings.admin_password_hash or (
+        hash_password(settings.admin_password) if settings.admin_password else None
+    )
+    if password_hash is None:
+        # No admin credentials configured — nothing to migrate; the table stays empty.
+        return
+    db.add(
+        User(
+            username=settings.admin_username,
+            display_name="Administrator",
+            password_hash=password_hash,
+            role="admin",
+            active=True,
+            must_change_password=False,
+        )
+    )
 
 
 def seed_db(db: Session) -> None:

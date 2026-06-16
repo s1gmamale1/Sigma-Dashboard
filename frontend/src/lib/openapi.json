@@ -19,7 +19,7 @@
           "Auth"
         ],
         "summary": "Log in as admin",
-        "description": "Exchange an admin username + password for a bearer JWT.\n\nReturns `data.access_token` (send it as `Authorization: Bearer <token>`) and `data.expires_at`.",
+        "description": "Exchange a username + password for a bearer JWT.\n\nReturns `data.access_token` (send it as `Authorization: Bearer <token>`), the\naccount's `role`, and `must_change_password` (true when the password is a temp\none that must be rotated before the rest of the API will respond).",
         "operationId": "login_api_v1_auth_login_post",
         "requestBody": {
           "content": {
@@ -1740,6 +1740,504 @@
           }
         ]
       }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Current signed-in user",
+        "description": "The signed-in account plus its role permission map. Reachable even when a\ntemp-password change is pending, so the frontend can show the change-password screen.",
+        "operationId": "auth_me_api_v1_auth_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_MeOut_"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid admin bearer token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/change-password": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Change your own password",
+        "description": "Set a new password for the signed-in account. Clears the temp-password flag,\nso after this call the rest of the API responds normally.",
+        "operationId": "change_password_api_v1_auth_change_password_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_MeOut_"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid admin bearer token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Current password is incorrect.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/users": {
+      "get": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "List users",
+        "description": "All login accounts, ordered by username. Admin only.",
+        "operationId": "list_users_api_v1_users_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_list_UserOut__"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid admin bearer token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin access required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Create a user",
+        "description": "Create a login account with a temp password (defaults to forcing a change on first login).",
+        "operationId": "create_user_api_v1_users_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_UserOut_"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid admin bearer token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin access required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Username already exists.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/users/{user_id}": {
+      "patch": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Update a user",
+        "description": "Change a user's display name, role, or active flag. Refuses to demote or disable\nthe last active admin (so you can never lock everyone out).",
+        "operationId": "update_user_api_v1_users__user_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_UserOut_"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid admin bearer token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin access required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Would remove the last active admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Delete a user",
+        "description": "Permanently delete a user. You cannot delete yourself or the last active admin \u2014\ndisable those instead (PATCH active=false).",
+        "operationId": "delete_user_api_v1_users__user_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_UserDeleted_"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid admin bearer token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin access required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Cannot delete yourself or the last admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users/{user_id}/reset-password": {
+      "post": {
+        "tags": [
+          "Users"
+        ],
+        "summary": "Reset a user's password",
+        "description": "Set a new temp password for a user (defaults to forcing a change on next login).",
+        "operationId": "reset_user_password_api_v1_users__user_id__reset_password_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_UserOut_"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid admin bearer token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin access required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Resource not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1915,6 +2413,29 @@
           "notes"
         ],
         "title": "AttendanceOut"
+      },
+      "ChangePasswordRequest": {
+        "properties": {
+          "current_password": {
+            "type": "string",
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Current Password"
+          },
+          "new_password": {
+            "type": "string",
+            "maxLength": 300,
+            "minLength": 6,
+            "title": "New Password"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "current_password",
+          "new_password"
+        ],
+        "title": "ChangePasswordRequest"
       },
       "ChasePatchRequest": {
         "properties": {
@@ -2305,6 +2826,38 @@
         "type": "object",
         "title": "Envelope[LoginResponse]"
       },
+      "Envelope_MeOut_": {
+        "properties": {
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MeOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Meta"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Envelope[MeOut]"
+      },
       "Envelope_ProjectConditionOut_": {
         "properties": {
           "data": {
@@ -2400,6 +2953,70 @@
         "additionalProperties": false,
         "type": "object",
         "title": "Envelope[SheetSyncResult]"
+      },
+      "Envelope_UserDeleted_": {
+        "properties": {
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserDeleted"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Meta"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Envelope[UserDeleted]"
+      },
+      "Envelope_UserOut_": {
+        "properties": {
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Meta"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Envelope[UserOut]"
       },
       "Envelope_list_AttendanceHistoryRow__": {
         "properties": {
@@ -2688,6 +3305,42 @@
         "additionalProperties": false,
         "type": "object",
         "title": "Envelope[list[ReportOut]]"
+      },
+      "Envelope_list_UserOut__": {
+        "properties": {
+          "data": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/UserOut"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          },
+          "meta": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Meta"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Envelope[list[UserOut]]"
       },
       "Envelope_list_WeeklySummaryRow__": {
         "properties": {
@@ -3178,15 +3831,86 @@
             "type": "string",
             "format": "date-time",
             "title": "Expires At"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "manager",
+              "viewer"
+            ],
+            "title": "Role"
+          },
+          "must_change_password": {
+            "type": "boolean",
+            "title": "Must Change Password"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
           "access_token",
-          "expires_at"
+          "expires_at",
+          "username",
+          "display_name",
+          "role",
+          "must_change_password"
         ],
         "title": "LoginResponse"
+      },
+      "MeOut": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "manager",
+              "viewer"
+            ],
+            "title": "Role"
+          },
+          "permissions": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "type": "object",
+            "title": "Permissions"
+          },
+          "must_change_password": {
+            "type": "boolean",
+            "title": "Must Change Password"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "username",
+          "display_name",
+          "role",
+          "permissions",
+          "must_change_password"
+        ],
+        "title": "MeOut",
+        "description": "The signed-in user plus the role's permission map (drives frontend gating)."
       },
       "PerformanceRow": {
         "properties": {
@@ -3725,6 +4449,27 @@
         ],
         "title": "ReportOut"
       },
+      "ResetPasswordRequest": {
+        "properties": {
+          "temp_password": {
+            "type": "string",
+            "maxLength": 300,
+            "minLength": 6,
+            "title": "Temp Password"
+          },
+          "must_change_password": {
+            "type": "boolean",
+            "title": "Must Change Password",
+            "default": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "temp_password"
+        ],
+        "title": "ResetPasswordRequest"
+      },
       "SheetSyncResult": {
         "properties": {
           "id": {
@@ -3779,6 +4524,181 @@
         ],
         "title": "SheetSyncResult",
         "description": "Outcome of a Google Sheet attendance sync run."
+      },
+      "UserCreate": {
+        "properties": {
+          "username": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Username",
+            "examples": [
+              "cody"
+            ]
+          },
+          "display_name": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Display Name",
+            "examples": [
+              "Cody"
+            ]
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "manager",
+              "viewer"
+            ],
+            "title": "Role",
+            "default": "viewer"
+          },
+          "temp_password": {
+            "type": "string",
+            "maxLength": 300,
+            "minLength": 6,
+            "title": "Temp Password"
+          },
+          "must_change_password": {
+            "type": "boolean",
+            "title": "Must Change Password",
+            "default": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "username",
+          "display_name",
+          "temp_password"
+        ],
+        "title": "UserCreate"
+      },
+      "UserDeleted": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "UserDeleted"
+      },
+      "UserOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "manager",
+              "viewer"
+            ],
+            "title": "Role"
+          },
+          "active": {
+            "type": "boolean",
+            "title": "Active"
+          },
+          "must_change_password": {
+            "type": "boolean",
+            "title": "Must Change Password"
+          },
+          "last_login_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Login At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "display_name",
+          "role",
+          "active",
+          "must_change_password",
+          "last_login_at",
+          "created_at"
+        ],
+        "title": "UserOut"
+      },
+      "UserUpdate": {
+        "properties": {
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 160,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "admin",
+                  "manager",
+                  "viewer"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "UserUpdate"
       },
       "ValidationError": {
         "properties": {
@@ -4295,7 +5215,7 @@
     "securitySchemes": {
       "HTTPBearer": {
         "type": "http",
-        "description": "Admin JWT from POST /api/v1/auth/login",
+        "description": "User JWT from POST /api/v1/auth/login",
         "scheme": "bearer"
       },
       "APIKeyHeader": {
@@ -4309,7 +5229,11 @@
   "tags": [
     {
       "name": "Auth",
-      "description": "Obtain an admin session token."
+      "description": "Log in, inspect the current user, and change your own password."
+    },
+    {
+      "name": "Users",
+      "description": "Admin-only account management \u2014 create, edit, reset, disable, and delete users."
     },
     {
       "name": "Dashboard",

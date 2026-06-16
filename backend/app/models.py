@@ -10,6 +10,25 @@ ATTENDANCE_STATUSES = ("on_time", "late", "late_15", "no_show", "absent", "off_d
 CHASE_STATES = ("none", "needs_chase", "chased", "resolved")
 GOAL_STATUSES = ("active", "overdue", "done", "paused")
 SYNC_STATUSES = ("success", "failed")
+USER_ROLES = ("admin", "manager", "viewer")
+
+
+class User(TimestampMixin, Base):
+    """A dashboard login account. Distinct from `Person` (a tracked team member):
+    a User can sign in and is governed by a role; a Person never logs in."""
+
+    __tablename__ = "users"
+    __table_args__ = (CheckConstraint(f"role in {USER_ROLES}", name="ck_user_role"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    username: Mapped[str] = mapped_column(String(120), unique=True, nullable=False, index=True)
+    display_name: Mapped[str] = mapped_column(String(160), nullable=False)
+    password_hash: Mapped[str] = mapped_column(String(120), nullable=False)
+    role: Mapped[str] = mapped_column(String(24), nullable=False, default="viewer")
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # Temp passwords set this; the user is forced to pick a new one before using the app.
+    must_change_password: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class Person(TimestampMixin, Base):

@@ -27,7 +27,7 @@ from backend.app.bootstrap import seed_db
 from backend.app.config import get_settings
 from backend.app.db import Base, get_db
 from backend.app.main import app
-from backend.app.models import AttendanceRecord, Feedback, Person, Report
+from backend.app.models import AttendanceRecord, Feedback, Person, Report, User
 from backend.app.services import compute_performance_rows
 
 TZ = ZoneInfo("Asia/Tashkent")
@@ -489,6 +489,16 @@ def _make_client() -> tuple[TestClient, Session]:
     session = Session(engine)
     seed_db(session)
     add_person(session, "abdul", "Abdul")
+    session.add(
+        User(
+            username=get_settings().admin_username,
+            display_name="Admin",
+            password_hash="unused-for-token-auth",
+            role="admin",
+            active=True,
+            must_change_password=False,
+        )
+    )
     session.commit()
 
     def override_db():
@@ -502,7 +512,7 @@ def _make_client() -> tuple[TestClient, Session]:
 
 def _auth() -> dict[str, str]:
     settings = get_settings()
-    token = create_access_token(settings, settings.admin_username)[0]
+    token = create_access_token(settings, settings.admin_username, "admin")[0]
     return {"Authorization": f"Bearer {token}"}
 
 

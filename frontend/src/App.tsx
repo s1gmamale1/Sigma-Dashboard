@@ -9,33 +9,51 @@ import {
   Gauge,
   RefreshCw,
   Sheet,
-  Target
+  Target,
+  Users
 } from "lucide-react";
 import { api } from "./lib/api";
 import { addDays, isoDate, monSatWeek, monthRange, weekStart } from "./lib/dates";
 import { AttendanceView } from "./components/AttendanceView";
 import { GoalsView } from "./components/GoalsView";
 import { LoginPanel } from "./components/LoginPanel";
+import { ChangePasswordPanel } from "./components/ChangePasswordPanel";
 import { OverviewView } from "./components/OverviewView";
 import { PerformanceView, type PerformancePeriod } from "./components/PerformanceView";
 import { ProjectConditionView } from "./components/ProjectConditionView";
 import { ReportsView } from "./components/ReportsView";
 import { SheetsView } from "./components/SheetsView";
+import { UsersView } from "./components/UsersView";
 import { EmptyState } from "./components/EmptyState";
 import { ViewSkeleton } from "./components/ViewSkeleton";
 import { Shell } from "./components/Shell";
 import type { Segment } from "./components/SegmentedControl";
+import type { Me } from "./lib/types";
 
-type Tab = "overview" | "attendance" | "reports" | "performance" | "goals" | "projects" | "sheets";
+type Tab = "overview" | "attendance" | "reports" | "performance" | "goals" | "projects" | "sheets" | "users";
 
-const tabs: Segment[] = [
+// Each tab maps to a permission area; a tab shows only when the role can read that
+// area. `overview` is the shared home (any signed-in user); `users` is admin-only.
+const TAB_AREA: Record<Tab, string | null> = {
+  overview: null,
+  attendance: "attendance",
+  reports: "reports",
+  performance: "performance",
+  goals: "goals",
+  projects: "projects",
+  sheets: "sheets",
+  users: "users"
+};
+
+const allTabs: Segment[] = [
   { id: "overview", label: "Overview", icon: <Activity size={18} /> },
   { id: "attendance", label: "Attendance", icon: <CalendarDays size={18} /> },
   { id: "reports", label: "Reports", icon: <BarChart3 size={18} /> },
   { id: "performance", label: "Performance", icon: <Gauge size={18} /> },
   { id: "goals", label: "Goals", icon: <Target size={18} /> },
   { id: "projects", label: "Projects", icon: <FolderKanban size={18} /> },
-  { id: "sheets", label: "Sheets", icon: <Sheet size={18} /> }
+  { id: "sheets", label: "Sheets", icon: <Sheet size={18} /> },
+  { id: "users", label: "Users", icon: <Users size={18} /> }
 ];
 
 export function App() {
@@ -53,10 +71,51 @@ export function App() {
 
   if (!token) return <LoginPanel onLogin={storeToken} />;
 
-  return <AuthenticatedDashboard token={token} logout={logout} />;
+  return <AuthenticatedApp token={token} logout={logout} />;
 }
 
-function AuthenticatedDashboard({ token, logout }: { token: string; logout: () => void }) {
+// Resolves the signed-in user (role + permissions), forces a password change when the
+// account is on a temp password, then hands off to the dashboard.
+function AuthenticatedApp({ token, logout }: { token: string; logout: () => void }) {
+  const queryClient = useQueryClient();
+  const me = useQuery({ queryKey: ["me"], queryFn: () => api.me(token), retry: false });
+
+  useEffect(() => {
+    // A bad/expired token surfaces as a failed /me — drop it and show the login.
+    if (me.error) logout();
+  }, [me.error, logout]);
+
+  if (me.isLoading) {
+    return (
+      <main className="login-shell">
+        <ViewSkeleton />
+      </main>
+    );
+  }
+  if (!me.data) return <LoginPanel onLogin={() => queryClient.invalidateQueries({ queryKey: ["me"] })} />;
+
+  if (me.data.must_change_password) {
+    return (
+      <ChangePasswordPanel
+        token={token}
+        displayName={me.data.display_name}
+        onChanged={() => queryClient.invalidateQueries({ queryKey: ["me"] })}
+        onLogout={logout}
+      />
+    );
+  }
+
+  return <AuthenticatedDashboard token={token} logout={logout} me={me.data} />;
+}
+
+function AuthenticatedDashboard({ token, logout, me }: { token: string; logout: () => void; me: Me }) {
+  const tabs = useMemo(
+    () => allTabs.filter((tab) => {
+      const area = TAB_AREA[tab.id as Tab];
+      return area === null || area in me.permissions;
+    }),
+    [me.permissions]
+  );
   const [active, setActive] = useState<Tab>("overview");
   const [selectedDate, setSelectedDate] = useState(isoDate());
   const [showArchivedProjects, setShowArchivedProjects] = useState(false);
@@ -144,7 +203,8 @@ function AuthenticatedDashboard({ token, logout }: { token: string; logout: () =
     performance: [performance, evaluations, feedback],
     goals: [goals],
     projects: [projects],
-    sheets: []
+    sheets: [],
+    users: []
   }[active];
   const errorQuery = activeQueries.find((query) => query.error);
   const isLoading = activeQueries.some((query) => query.isLoading);
@@ -212,6 +272,7 @@ function AuthenticatedDashboard({ token, logout }: { token: string; logout: () =
           />
         ) : null}
         {active === "sheets" ? <SheetsView token={token} /> : null}
+        {active === "users" ? <UsersView token={token} currentUsername={me.username} /> : null}
       </>
     );
   }
