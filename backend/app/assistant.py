@@ -14,8 +14,14 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 import websockets
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 
-from .config import Settings
+from .auth import require_edit
+from .config import Settings, get_settings
+from .models import User
+from .schemas import Envelope
 
 # Confirmed by the Phase 0 spike: must be the Control-UI operator id + webchat
 # mode + a loopback Origin header, or the gateway denies operator.write on chat.send.
@@ -106,3 +112,48 @@ class GatewayClient:
     async def abort(self, run_id: str) -> None:
         async with self._open() as ws:
             await self._abort_on(ws, run_id)
+
+
+class ChatRequest(BaseModel):
+    model_config = {"extra": "forbid"}
+    message: str
+
+
+class AbortRequest(BaseModel):
+    model_config = {"extra": "forbid"}
+    run_id: str
+
+
+def get_gateway_client(settings: Settings = Depends(get_settings)) -> GatewayClient:
+    return GatewayClient(settings)
+
+
+router = APIRouter(prefix="/api/v1", tags=["Assistant"])
+
+
+def _sse(event: dict) -> str:
+    return f"data: {json.dumps(event)}\n\n"
+
+
+@router.post("/assistant/chat")
+async def assistant_chat(
+    payload: ChatRequest,
+    settings: Settings = Depends(get_settings),
+    client: GatewayClient = Depends(get_gateway_client),
+    _user: User = Depends(require_edit),
+) -> StreamingResponse:
+    if not settings.assistant_enabled:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Assistant is disabled")
+
+    async def gen() -> AsyncIterator[str]:
+        try:
+            async for event in client.stream_chat(payload.message):
+                yield _sse(event)
+        except Exception as exc:  # surface any failure as a terminal SSE error
+            yield _sse({"kind": "error", "message": str(exc)})
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
