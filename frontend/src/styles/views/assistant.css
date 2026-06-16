@@ -1,0 +1,74 @@
+/* Ask Viper dock — living orb -> glass panel. Reuses global tokens. */
+.viper-orb {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 31;
+  width: 56px;
+  height: 56px;
+  border: 0;
+  border-radius: var(--r-pill);
+  cursor: pointer;
+  background: radial-gradient(circle at 35% 30%, #fff6, transparent 60%), var(--grad-sigma);
+  box-shadow: var(--shadow-float);
+  isolation: isolate;
+}
+.viper-orb__rim {
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  background: conic-gradient(from 0deg, var(--s-amber), var(--s-coral), var(--s-violet), var(--s-azure), var(--s-amber));
+  filter: blur(6px);
+  opacity: 0.85;
+  z-index: -1;
+  animation: viper-rim 4.2s linear infinite;
+}
+.viper-orb[data-state="streaming"] .viper-orb__rim { animation-duration: 1.6s; opacity: 1; }
+.viper-orb__core {
+  position: absolute;
+  inset: 6px;
+  border-radius: inherit;
+  background: var(--glass-fill);
+  backdrop-filter: blur(8px);
+}
+@keyframes viper-rim { to { transform: rotate(360deg); } }
+
+.viper-dock {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  width: min(380px, calc(100vw - 32px));
+  height: min(560px, calc(100vh - 48px));
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-float);
+  overflow: hidden;
+  animation: viper-pop var(--dur-smooth, 400ms) var(--spring-smooth, ease);
+}
+@keyframes viper-pop {
+  from { transform: translateY(12px) scale(0.96); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+.viper-dock__head { display: flex; align-items: center; gap: 10px; padding: 12px 14px; }
+.viper-dock__head .viper-orb { position: static; width: 28px; height: 28px; box-shadow: none; }
+.viper-dock__title { font-weight: 600; flex: 1; }
+.viper-dock__close { border: 0; background: transparent; font-size: 20px; cursor: pointer; color: var(--label-secondary); }
+.viper-dock__log { flex: 1; overflow-y: auto; padding: 8px 14px; display: flex; flex-direction: column; gap: 10px; }
+.viper-dock__hint { color: var(--label-secondary); }
+.viper-msg { display: flex; flex-direction: column; gap: 2px; white-space: pre-wrap; }
+.viper-msg__who { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--label-secondary); }
+.viper-msg--you { align-items: flex-end; }
+.viper-dock__chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 14px; }
+.viper-chip { border: 1px solid var(--glass-highlight); background: transparent; border-radius: var(--r-pill); padding: 4px 10px; font-size: 12px; cursor: pointer; }
+.viper-chip:disabled { opacity: 0.5; cursor: default; }
+.viper-dock__input { display: flex; gap: 8px; padding: 12px 14px; }
+.viper-dock__input input { flex: 1; border-radius: var(--r-pill); border: 1px solid var(--glass-highlight); padding: 8px 12px; background: var(--glass-fill); }
+.viper-dock__input button { border: 0; border-radius: var(--r-pill); padding: 8px 14px; cursor: pointer; background: var(--grad-sigma); color: #fff; }
+
+@media (prefers-reduced-motion: reduce) {
+  .viper-orb__rim { animation: none; }
+  .viper-dock { animation: none; }
+}
+.viper-orb[data-reduced="true"] .viper-orb__rim { animation: none; }

@@ -180,3 +180,57 @@ export const api = {
       apiFetch<{ id: number }>(`/api/v1/users/${id}`, token, { method: "DELETE" })
   }
 };
+
+export type AssistantEvent =
+  | { kind: "run"; runId: string }
+  | { kind: "delta"; text: string }
+  | { kind: "final"; stopReason?: string }
+  | { kind: "error"; message: string; errorKind?: string }
+  | { kind: "aborted" };
+
+export async function streamAssistant(
+  token: string | null,
+  message: string,
+  onEvent: (event: AssistantEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const res = await fetch("/api/v1/assistant/chat", {
+    method: "POST",
+    signal,
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "text/event-stream",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ message }),
+  });
+  if (!res.ok || !res.body) throw new Error(`Assistant request failed (${res.status})`);
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const frames = buffer.split("\n\n");
+    buffer = frames.pop() ?? "";
+    for (const frame of frames) {
+      const dataLine = frame.split("\n").find((l) => l.startsWith("data: "));
+      if (!dataLine) continue;
+      try {
+        onEvent(JSON.parse(dataLine.slice(6)) as AssistantEvent);
+      } catch {
+        /* ignore malformed frame */
+      }
+    }
+  }
+}
+
+export async function abortAssistant(token: string | null, runId: string): Promise<void> {
+  await apiFetchEnvelope<{ aborted: boolean }>("/api/v1/assistant/abort", token, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ run_id: runId }),
+  });
+}

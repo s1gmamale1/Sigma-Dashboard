@@ -27,6 +27,7 @@ import { UsersView } from "./components/UsersView";
 import { EmptyState } from "./components/EmptyState";
 import { ViewSkeleton } from "./components/ViewSkeleton";
 import { Shell } from "./components/Shell";
+import { AssistantDock } from "./components/AssistantDock";
 import type { Segment } from "./components/SegmentedControl";
 import type { Me } from "./lib/types";
 
@@ -278,16 +279,19 @@ function AuthenticatedDashboard({ token, logout, me }: { token: string; logout: 
   }
 
   return (
-    <Shell
-      tabs={tabs}
-      active={active}
-      onActive={(id) => setActive(id as Tab)}
-      title={title}
-      date={selectedDate}
-      onDate={setSelectedDate}
-      onLogout={logout}
-    >
-      {body}
-    </Shell>
+    <>
+      <Shell
+        tabs={tabs}
+        active={active}
+        onActive={(id) => setActive(id as Tab)}
+        title={title}
+        date={selectedDate}
+        onDate={setSelectedDate}
+        onLogout={logout}
+      >
+        {body}
+      </Shell>
+      {["admin", "manager"].includes(me.role) && <AssistantDock token={token} />}
+    </>
   );
 }
