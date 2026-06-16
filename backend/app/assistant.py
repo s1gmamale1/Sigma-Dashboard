@@ -157,3 +157,16 @@ async def assistant_chat(
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+@router.post("/assistant/abort", response_model=Envelope)
+async def assistant_abort(
+    payload: AbortRequest,
+    settings: Settings = Depends(get_settings),
+    client: GatewayClient = Depends(get_gateway_client),
+    _user: User = Depends(require_edit),
+) -> Envelope:
+    if not settings.assistant_enabled:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Assistant is disabled")
+    await client.abort(payload.run_id)
+    return Envelope(data={"aborted": True})

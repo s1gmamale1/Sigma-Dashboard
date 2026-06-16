@@ -130,3 +130,62 @@ def test_chat_disabled_returns_503():
         assert r.status_code == 503
     finally:
         app.dependency_overrides.clear()
+
+
+def test_abort_calls_client():
+    fake = FakeClient([])
+    app.dependency_overrides[assistant.get_gateway_client] = lambda: fake
+    app.dependency_overrides[require_edit] = lambda: SimpleNamespace(username="u", role="admin")
+    app.dependency_overrides[get_settings] = lambda: Settings(assistant_enabled=True, **_TEST_SETTINGS)
+    try:
+        c = TestClient(app)
+        r = c.post("/api/v1/assistant/abort", json={"run_id": "run_1"})
+        assert r.status_code == 200
+        assert r.json()["data"]["aborted"] is True
+        assert fake.aborted == "run_1"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_chat_rejects_viewer_role():
+    # Do NOT override require_edit — exercise the real gate with a viewer JWT.
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import Session
+    from sqlalchemy.pool import StaticPool
+
+    from backend.app.db import Base, get_db
+    from backend.app.auth import create_access_token
+    # Mirror backend/tests/test_users.py for seeding + user-creation pattern
+    from backend.app.bootstrap import seed_db
+    from backend.app.models import User as UserModel
+    from backend.app.auth import hash_password
+
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    Base.metadata.create_all(engine)
+    session = Session(engine)
+    seed_db(session)
+    settings = Settings(**_TEST_SETTINGS)
+    viewer = UserModel(
+        username="viewer1",
+        display_name="Viewer One",
+        role="viewer",
+        active=True,
+        password_hash=hash_password("viewerpass"),
+        must_change_password=False,
+    )
+    session.add(viewer)
+    session.commit()
+    token = create_access_token(settings, "viewer1", "viewer")[0]
+
+    app.dependency_overrides[get_db] = lambda: session
+    app.dependency_overrides[get_settings] = lambda: Settings(assistant_enabled=True, **_TEST_SETTINGS)
+    try:
+        c = TestClient(app)
+        r = c.post(
+            "/api/v1/assistant/chat",
+            json={"message": "hi"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert r.status_code == 403
+    finally:
+        app.dependency_overrides.clear()
