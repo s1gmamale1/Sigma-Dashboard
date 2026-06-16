@@ -76,6 +76,18 @@
   --spring-smooth: linear(0, 0.0037, 0.0142, 0.031, 0.0534, 0.0804, 0.1108, 0.1438, 0.1784, 0.2135, 0.2484, 0.3145, 0.3746, 0.4283, 0.4755, 0.5562, 0.6215, 0.6726, 0.7112, 0.7735, 0.8196, 0.854, 0.8793, 0.9185, 0.9458, 0.9647, 0.9779, 0.9921, 1);
   --dur-smooth: 400ms;
   --ease-out: cubic-bezier(0.2, 0.6, 0.2, 1);
+  --ease-emph: cubic-bezier(0.05, 0.7, 0.1, 1); /* emphasized-decelerate — Sigma arrivals */
+
+  /* Sigma aurora palette — warm→cool ramp (color = light spilled on darkness) */
+  --s-amber: #ff9a0f;
+  --s-coral: #ff646a;
+  --s-rose: #ef638a;
+  --s-violet: #bc82f3;
+  --s-azure: #67a7ff;
+  --grad-sigma: linear-gradient(115deg, var(--s-amber), var(--s-coral) 34%, var(--s-violet) 67%, var(--s-azure));
+  --grad-cool: linear-gradient(120deg, var(--s-azure), var(--s-violet));
+  --grad-warm: linear-gradient(120deg, var(--s-amber), var(--s-coral));
+  --velvet: #08070d;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -87,9 +99,9 @@
     --label-tertiary: rgba(235, 235, 245, 0.3);
     --label-quaternary: rgba(235, 235, 245, 0.18);
 
-    --bg: #000000;
-    --surface: #1c1c1e;
-    --surface-2: #2c2c2e;
+    --bg: #08070d; /* velvet floor — never pure #000 (Sigma) */
+    --surface: #1a1820;
+    --surface-2: #262430;
 
     --fill: rgba(120, 120, 128, 0.36);
     --fill-2: rgba(118, 118, 128, 0.24);

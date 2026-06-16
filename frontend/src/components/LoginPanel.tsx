@@ -1,5 +1,4 @@
 import { FormEvent, useState } from "react";
-import { Lock } from "lucide-react";
 import { login } from "../lib/api";
 
 interface LoginPanelProps {
@@ -29,9 +28,7 @@ export function LoginPanel({ onLogin }: LoginPanelProps) {
   return (
     <main className="login-shell">
       <form className="login-panel card materialize" onSubmit={submit}>
-        <div className="login-mark" aria-hidden="true">
-          <Lock size={24} />
-        </div>
+        <div className="login-mark sigma-orb" aria-hidden="true" />
         <h1 className="title">Sigma Dashboard</h1>
         <label className="field">
           Username
@@ -47,7 +44,7 @@ export function LoginPanel({ onLogin }: LoginPanelProps) {
           />
         </label>
         {error ? <p className="form-error">{error}</p> : null}
-        <button className="primary-button" disabled={busy}>
+        <button className="primary-button hero" disabled={busy}>
           {busy ? "Signing in" : "Sign in"}
         </button>
       </form>

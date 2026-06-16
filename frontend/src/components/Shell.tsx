@@ -42,13 +42,16 @@ export function Shell({
     <div className="app-shell">
       <header className={`topbar glass${collapsed ? " is-collapsed" : ""}`}>
         <div className="topbar__brand">
-          <span className="brand-default">
-            <span className="eyebrow">Viper operations</span>
-            <strong>Sigma Dashboard</strong>
+          <span className="sigma-orb brand-orb" aria-hidden="true" />
+          <span className="topbar__brand-text">
+            <span className="brand-default">
+              <span className="eyebrow">Viper operations</span>
+              <strong>Sigma Dashboard</strong>
+            </span>
+            <strong className="brand-collapsed" aria-hidden="true">
+              {title}
+            </strong>
           </span>
-          <strong className="brand-collapsed" aria-hidden="true">
-            {title}
-          </strong>
         </div>
         <div className="topbar__nav">
           <SegmentedControl items={tabs} value={active} onChange={onActive} ariaLabel="Dashboard views" panelId="view-panel" />

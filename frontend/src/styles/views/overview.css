@@ -35,7 +35,10 @@
   gap: var(--sp-2);
 }
 
-/* Goal risk */
+/* Goal risk — warm gradient signals risk on the progress fill */
+.risk-row .progress > span {
+  background: var(--grad-warm);
+}
 .risk-row {
   display: grid;
   gap: var(--sp-2);
