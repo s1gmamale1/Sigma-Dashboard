@@ -24,6 +24,12 @@ class Settings(BaseSettings):
     sheet_sync_hour: int = 19
     sheet_sync_minute: int = 0
     frontend_dist_path: str = "frontend/dist"
+    gateway_ws_url: str = "ws://127.0.0.1:18789"
+    gateway_token: str = ""
+    gateway_agent: str = "viper"
+    gateway_session: str = "dashboard"
+    assistant_enabled: bool = False
+    assistant_idle_timeout_s: float = 120.0
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -34,6 +40,17 @@ class Settings(BaseSettings):
     @property
     def frontend_dist(self) -> Path:
         return Path(self.frontend_dist_path)
+
+    @property
+    def gateway_session_key(self) -> str:
+        return f"agent:{self.gateway_agent}:{self.gateway_session}"
+
+    def validate_runtime_secrets(self) -> None:
+        """Extended secret guard for Settings instance (called in tests and at boot)."""
+        if self.assistant_enabled and len(self.gateway_token) < 16:
+            raise ValueError(
+                "SIGMA_GATEWAY_TOKEN must be set (>=16 chars) when SIGMA_ASSISTANT_ENABLED is true"
+            )
 
 
 @lru_cache
@@ -57,3 +74,4 @@ def validate_runtime_secrets(settings: Settings) -> None:
     ]
     if bad:
         raise RuntimeError(f"placeholder secrets in use — set {', '.join(bad)} in .env")
+    settings.validate_runtime_secrets()

@@ -144,6 +144,9 @@ def create_app() -> FastAPI:
 
     app.include_router(router)
 
+    from .assistant import router as assistant_router
+    app.include_router(assistant_router)
+
     dist = Path(settings.frontend_dist_path)
     if dist.exists():
         assets = dist / "assets"
