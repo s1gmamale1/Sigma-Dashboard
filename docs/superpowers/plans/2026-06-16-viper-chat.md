@@ -334,8 +334,11 @@ import websockets
 
 from .config import Settings
 
-# Confirmed valid client.id from the Phase 0 spike.
-CLIENT_ID = "webchat-ui"
+# Confirmed by the Phase 0 spike: must be the Control-UI operator id + webchat
+# mode + a loopback Origin header, or the gateway denies operator.write on chat.send.
+CLIENT_ID = "openclaw-control-ui"
+CLIENT_MODE = "webchat"
+GATEWAY_ORIGIN = "http://127.0.0.1"
 
 
 class GatewayClient:
@@ -347,7 +350,8 @@ class GatewayClient:
 
     @asynccontextmanager
     async def _open(self) -> AsyncIterator[Any]:
-        async with websockets.connect(self._url, max_size=None) as ws:
+        async with websockets.connect(self._url, max_size=None,
+                                      additional_headers={"Origin": GATEWAY_ORIGIN}) as ws:
             challenge = json.loads(await ws.recv())
             if challenge.get("event") != "connect.challenge":
                 raise RuntimeError(f"unexpected first frame: {challenge}")
@@ -356,7 +360,7 @@ class GatewayClient:
                 "params": {
                     "minProtocol": 4, "maxProtocol": 4,
                     "client": {"id": CLIENT_ID, "version": "1.0.0",
-                               "platform": "backend", "mode": "backend"},
+                               "platform": "backend", "mode": CLIENT_MODE},
                     "role": "operator",
                     "scopes": ["operator.read", "operator.write"],
                     "auth": {"token": self._token},
