@@ -1,30 +1,141 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { streamAssistant, abortAssistant, type AssistantEvent } from "../lib/api";
 import { ViperOrb } from "./ViperOrb";
 import { useReducedMotion } from "../hooks/useReducedMotion";
 
 type Msg = { role: "you" | "viper"; text: string };
 
+interface ViperSession {
+  id: string;
+  name: string;
+  key: string; // the <session> suffix, e.g. "dashboard" or "dashboard-ab12cd"
+}
+
 const CHIPS = ["Who's at risk this week?", "This week's lateness", "Summarize Aiden's month"];
+
+const LS_SESSIONS = "viper-sessions";
+const LS_ACTIVE = "viper-active-session";
+const lsTranscript = (id: string) => `viper-session-${id}`;
+
+let _sessionCounter = 0;
+
+function genKey(): string {
+  _sessionCounter += 1;
+  return `dashboard-${Date.now().toString(36)}${_sessionCounter.toString(36)}`;
+}
+
+const DEFAULT_SESSION: ViperSession = { id: "default", name: "Main", key: "dashboard" };
+
+function loadSessions(): ViperSession[] {
+  try {
+    const raw = localStorage.getItem(LS_SESSIONS);
+    if (raw) return JSON.parse(raw) as ViperSession[];
+  } catch { /* ignore */ }
+  return [DEFAULT_SESSION];
+}
+
+function saveSessions(sessions: ViperSession[]): void {
+  localStorage.setItem(LS_SESSIONS, JSON.stringify(sessions));
+}
+
+function loadActiveId(sessions: ViperSession[]): string {
+  const stored = localStorage.getItem(LS_ACTIVE);
+  if (stored && sessions.some((s) => s.id === stored)) return stored;
+  return sessions[0]?.id ?? DEFAULT_SESSION.id;
+}
+
+function loadTranscript(id: string): Msg[] {
+  try {
+    const raw = localStorage.getItem(lsTranscript(id));
+    if (raw) return JSON.parse(raw) as Msg[];
+  } catch { /* ignore */ }
+  return [];
+}
+
+function saveTranscript(id: string, messages: Msg[]): void {
+  localStorage.setItem(lsTranscript(id), JSON.stringify(messages));
+}
 
 export function AssistantDock({ token }: { token: string | null }) {
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
-  const [messages, setMessages] = useState<Msg[]>([]);
-  const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
   const [typing, setTyping] = useState(false);
+  const [input, setInput] = useState("");
+
+  // Session state — initialised lazily so localStorage is read only once.
+  const [sessions, setSessions] = useState<ViperSession[]>(() => loadSessions());
+  const [activeId, setActiveId] = useState<string>(() => loadActiveId(loadSessions()));
+  const [messages, setMessages] = useState<Msg[]>(() => {
+    const sess = loadSessions();
+    const id = loadActiveId(sess);
+    return loadTranscript(id);
+  });
+
+  // Editing the session name inline.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
+
   const runIdRef = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const reduced = useReducedMotion();
 
+  // Persist transcript whenever messages change.
+  useEffect(() => {
+    saveTranscript(activeId, messages);
+  }, [activeId, messages]);
+
+  // Persist session list whenever it changes.
+  useEffect(() => {
+    saveSessions(sessions);
+  }, [sessions]);
+
+  // Persist active id whenever it changes.
+  useEffect(() => {
+    localStorage.setItem(LS_ACTIVE, activeId);
+  }, [activeId]);
+
+  const activeSession = sessions.find((s) => s.id === activeId) ?? sessions[0] ?? DEFAULT_SESSION;
+
   function close() {
     if (reduced) {
-      // No animation fires, so unmount immediately.
       setOpen(false);
     } else {
       setClosing(true);
     }
+  }
+
+  function switchSession(id: string) {
+    if (id === activeId) return;
+    // Persist current transcript before switching.
+    saveTranscript(activeId, messages);
+    setActiveId(id);
+    setMessages(loadTranscript(id));
+  }
+
+  function newSession() {
+    const n = sessions.length + 1;
+    const id = `sess-${Date.now().toString(36)}`;
+    const newSess: ViperSession = { id, name: `Session ${n}`, key: genKey() };
+    const next = [...sessions, newSess];
+    setSessions(next);
+    saveTranscript(activeId, messages);
+    setActiveId(id);
+    setMessages([]);
+  }
+
+  function startRename(sess: ViperSession) {
+    setEditingId(sess.id);
+    setEditingName(sess.name);
+  }
+
+  function commitRename() {
+    if (!editingId) return;
+    const trimmed = editingName.trim();
+    if (trimmed) {
+      setSessions((ss) => ss.map((s) => s.id === editingId ? { ...s, name: trimmed } : s));
+    }
+    setEditingId(null);
   }
 
   async function send(text: string) {
@@ -49,6 +160,7 @@ export function AssistantDock({ token }: { token: string | null }) {
       await streamAssistant(
         token,
         q,
+        activeSession.key,
         (e: AssistantEvent) => {
           if (e.kind === "run") runIdRef.current = e.runId;
           else if (e.kind === "delta") appendToViper(e.text);
@@ -56,7 +168,7 @@ export function AssistantDock({ token }: { token: string | null }) {
         },
         ctrl.signal,
       );
-    } catch (err) {
+    } catch {
       appendToViper(`\n[connection error]`);
     } finally {
       setStreaming(false);
@@ -66,7 +178,7 @@ export function AssistantDock({ token }: { token: string | null }) {
 
   function stop() {
     abortRef.current?.abort();
-    if (runIdRef.current) void abortAssistant(token, runIdRef.current);
+    if (runIdRef.current) void abortAssistant(token, runIdRef.current, activeSession.key);
     setStreaming(false);
   }
 
@@ -94,6 +206,57 @@ export function AssistantDock({ token }: { token: string | null }) {
     >
       <header className="viper-dock__head">
         <span className="viper-dock__title">Ask Viper</span>
+
+        {/* Session controls */}
+        <div className="viper-sessions">
+          {editingId === activeId ? (
+            <input
+              className="viper-sessions__rename"
+              value={editingName}
+              autoFocus
+              onChange={(e) => setEditingName(e.target.value)}
+              onBlur={commitRename}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commitRename();
+                else if (e.key === "Escape") setEditingId(null);
+              }}
+              aria-label="Rename session"
+            />
+          ) : (
+            <select
+              className="viper-sessions__select"
+              value={activeId}
+              onChange={(e) => switchSession(e.target.value)}
+              aria-label="Switch session"
+              disabled={streaming}
+            >
+              {sessions.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          )}
+          <button
+            type="button"
+            className="viper-sessions__rename-btn"
+            onClick={() => startRename(activeSession)}
+            aria-label="Rename session"
+            title="Rename"
+            disabled={streaming}
+          >
+            ✎
+          </button>
+          <button
+            type="button"
+            className="viper-sessions__new"
+            onClick={newSession}
+            aria-label="New session"
+            title="New session"
+            disabled={streaming}
+          >
+            ＋
+          </button>
+        </div>
+
         <button type="button" className="viper-dock__close" onClick={close} aria-label="Collapse">
           ×
         </button>

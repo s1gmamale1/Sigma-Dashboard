@@ -161,3 +161,48 @@
 .viper-dock[data-reduced="true"][data-closing="true"] { animation: none; }
 .viper-dock[data-reduced="true"] .viper-bubble { animation: none; opacity: 0.5; }
 .viper-dock[data-reduced="true"] .viper-dock__input input[data-typing="true"] { animation: none; }
+
+/* Session controls — compact row between title and close button */
+.viper-sessions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.viper-sessions__select {
+  border: 1px solid var(--glass-highlight);
+  background: var(--glass-fill);
+  border-radius: var(--r-pill);
+  padding: 3px 8px;
+  font-size: 12px;
+  color: inherit;
+  cursor: pointer;
+  max-width: 110px;
+}
+.viper-sessions__rename {
+  border: 1px solid #bc82f355;
+  background: var(--glass-fill);
+  border-radius: var(--r-pill);
+  padding: 3px 8px;
+  font-size: 12px;
+  color: inherit;
+  width: 90px;
+  outline: none;
+  box-shadow: 0 0 0 1px #bc82f322;
+}
+.viper-sessions__rename-btn,
+.viper-sessions__new {
+  border: 0;
+  background: transparent;
+  font-size: 14px;
+  cursor: pointer;
+  color: var(--label-secondary);
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: var(--r-pill);
+  transition: color 0.15s;
+}
+.viper-sessions__rename-btn:hover,
+.viper-sessions__new:hover { color: var(--label-primary); }
+.viper-sessions__rename-btn:disabled,
+.viper-sessions__new:disabled { opacity: 0.4; cursor: default; }
