@@ -60,11 +60,12 @@ class GatewayClient:
                 raise RuntimeError(f"gateway connect failed: {hello.get('error')}")
             yield ws
 
-    async def stream_chat(self, prompt: str) -> AsyncIterator[dict]:
+    async def stream_chat(self, prompt: str, session_key: str | None = None) -> AsyncIterator[dict]:
+        key = session_key if session_key is not None else self._session_key
         async with self._open() as ws:
             await ws.send(json.dumps({
                 "type": "req", "id": "r1", "method": "chat.send",
-                "params": {"sessionKey": self._session_key, "message": prompt,
+                "params": {"sessionKey": key, "message": prompt,
                            "idempotencyKey": str(uuid.uuid4())},
             }))
             run_id: str | None = None
@@ -74,7 +75,7 @@ class GatewayClient:
                         raw = await ws.recv()
                 except (TimeoutError, asyncio.TimeoutError):
                     if run_id:
-                        await self._abort_on(ws, run_id)
+                        await self._abort_on(ws, run_id, key)
                     yield {"kind": "error", "message": "timeout"}
                     return
                 except websockets.ConnectionClosed:
@@ -109,25 +110,36 @@ class GatewayClient:
                     yield {"kind": "aborted"}
                     return
 
-    async def _abort_on(self, ws: Any, run_id: str) -> None:
+    async def _abort_on(self, ws: Any, run_id: str, session_key: str | None = None) -> None:
+        key = session_key if session_key is not None else self._session_key
         await ws.send(json.dumps({
             "type": "req", "id": "a1", "method": "chat.abort",
-            "params": {"sessionKey": self._session_key, "runId": run_id},
+            "params": {"sessionKey": key, "runId": run_id},
         }))
 
-    async def abort(self, run_id: str) -> None:
+    async def abort(self, run_id: str, session_key: str | None = None) -> None:
         async with self._open() as ws:
-            await self._abort_on(ws, run_id)
+            await self._abort_on(ws, run_id, session_key)
+
+
+_SESSION_PATTERN = r"^[a-z0-9-]{1,48}$"
 
 
 class ChatRequest(BaseModel):
     model_config = {"extra": "forbid"}
     message: str = Field(min_length=1, max_length=4000)
+    session: str = Field(default="dashboard", pattern=_SESSION_PATTERN)
 
 
 class AbortRequest(BaseModel):
     model_config = {"extra": "forbid"}
     run_id: str
+    session: str = Field(default="dashboard", pattern=_SESSION_PATTERN)
+
+
+def _build_session_key(session: str, settings: Settings) -> str:
+    """Build the gateway session key from a validated session suffix."""
+    return f"agent:{settings.gateway_agent}:{session}"
 
 
 def get_gateway_client(settings: Settings = Depends(get_settings)) -> GatewayClient:
@@ -151,9 +163,11 @@ async def assistant_chat(
     if not settings.assistant_enabled:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Assistant is disabled")
 
+    session_key = _build_session_key(payload.session, settings)
+
     async def gen() -> AsyncIterator[str]:
         try:
-            async for event in client.stream_chat(payload.message):
+            async for event in client.stream_chat(payload.message, session_key=session_key):
                 yield _sse(event)
         except Exception as exc:  # surface any failure as a terminal SSE error
             yield _sse({"kind": "error", "message": str(exc)})
@@ -174,5 +188,6 @@ async def assistant_abort(
 ) -> Envelope:
     if not settings.assistant_enabled:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Assistant is disabled")
-    await client.abort(payload.run_id)
+    session_key = _build_session_key(payload.session, settings)
+    await client.abort(payload.run_id, session_key=session_key)
     return Envelope(data={"aborted": True})

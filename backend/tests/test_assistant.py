@@ -80,13 +80,17 @@ class FakeClient:
     def __init__(self, events):
         self._events = events
         self.aborted = None
+        self.last_session_key = None
+        self.last_abort_session_key = None
 
-    async def stream_chat(self, prompt):
+    async def stream_chat(self, prompt, session_key=None):
+        self.last_session_key = session_key
         for e in self._events:
             yield e
 
-    async def abort(self, run_id):
+    async def abort(self, run_id, session_key=None):
         self.aborted = run_id
+        self.last_abort_session_key = session_key
 
 
 _TEST_SETTINGS = dict(
@@ -215,5 +219,105 @@ def test_chat_rejects_empty_message():
         c = TestClient(app)
         r = c.post("/api/v1/assistant/chat", json={"message": ""})
         assert r.status_code == 422
+    finally:
+        app.dependency_overrides.clear()
+
+
+# --- Session management tests ---
+
+def test_chat_request_defaults_session_to_dashboard():
+    from backend.app.assistant import ChatRequest
+    req = ChatRequest(message="hi")
+    assert req.session == "dashboard"
+
+
+def test_abort_request_defaults_session_to_dashboard():
+    from backend.app.assistant import AbortRequest
+    req = AbortRequest(run_id="run_1")
+    assert req.session == "dashboard"
+
+
+def test_chat_request_rejects_colon_in_session():
+    """A session value with a colon must fail validation (would escape the agent prefix)."""
+    c = TestClient(app)
+    # no auth overrides needed — validation fires before auth
+    _override()
+    try:
+        r = c.post("/api/v1/assistant/chat", json={"message": "hi", "session": "a:b"})
+        assert r.status_code == 422
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_chat_request_rejects_path_traversal_in_session():
+    c = TestClient(app)
+    _override()
+    try:
+        r = c.post("/api/v1/assistant/chat", json={"message": "hi", "session": "../x"})
+        assert r.status_code == 422
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_abort_request_rejects_colon_in_session():
+    _override()
+    try:
+        c = TestClient(app)
+        r = c.post("/api/v1/assistant/abort", json={"run_id": "run_1", "session": "a:b"})
+        assert r.status_code == 422
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_chat_with_custom_session_sends_correct_key_to_gateway(monkeypatch):
+    """chat.send must carry sessionKey = agent:viper:<session> when session is overridden."""
+    frames = [
+        json.dumps({"event": "connect.challenge", "payload": {"nonce": "n"}}),
+        json.dumps({"type": "res", "id": "c1", "ok": True, "payload": {"type": "hello-ok"}}),
+        json.dumps({"type": "res", "id": "r1", "ok": True, "payload": {"runId": "run_42"}}),
+        json.dumps({"type": "event", "event": "chat", "payload": {"state": "final", "stopReason": "end_turn"}}),
+    ]
+    fake = FakeWS(frames)
+    monkeypatch.setattr(assistant.websockets, "connect", lambda *a, **k: fake)
+
+    client = assistant.GatewayClient(Settings(gateway_token="x" * 32, assistant_enabled=True))
+    out = asyncio.run(_collect(client.stream_chat("hi", session_key="agent:viper:dashboard-xyz")))
+
+    assert [e["kind"] for e in out] == ["run", "final"]
+    # chat.send frame must carry the custom session key
+    chat_send = next(f for f in fake.sent if f.get("method") == "chat.send")
+    assert chat_send["params"]["sessionKey"] == "agent:viper:dashboard-xyz"
+
+
+def test_route_resolves_session_key_for_custom_session():
+    """The route must pass the resolved session key to the client when session is overridden."""
+    fake = FakeClient(events=[
+        {"kind": "run", "runId": "run_x"},
+        {"kind": "final", "stopReason": "end_turn"},
+    ])
+    app.dependency_overrides[assistant.get_gateway_client] = lambda: fake
+    app.dependency_overrides[require_edit] = lambda: SimpleNamespace(username="u", role="manager")
+    app.dependency_overrides[get_settings] = lambda: Settings(assistant_enabled=True, **_TEST_SETTINGS)
+    try:
+        c = TestClient(app)
+        with c.stream("POST", "/api/v1/assistant/chat", json={"message": "hi", "session": "dashboard-xyz"}) as r:
+            assert r.status_code == 200
+            list(r.iter_text())  # drain
+        assert fake.last_session_key == "agent:viper:dashboard-xyz"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_route_resolves_session_key_for_abort():
+    """abort route must pass the resolved session key to the client."""
+    fake = FakeClient([])
+    app.dependency_overrides[assistant.get_gateway_client] = lambda: fake
+    app.dependency_overrides[require_edit] = lambda: SimpleNamespace(username="u", role="admin")
+    app.dependency_overrides[get_settings] = lambda: Settings(assistant_enabled=True, **_TEST_SETTINGS)
+    try:
+        c = TestClient(app)
+        r = c.post("/api/v1/assistant/abort", json={"run_id": "run_1", "session": "dashboard-xyz"})
+        assert r.status_code == 200
+        assert fake.last_abort_session_key == "agent:viper:dashboard-xyz"
     finally:
         app.dependency_overrides.clear()
