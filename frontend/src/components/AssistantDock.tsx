@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { streamAssistant, abortAssistant, type AssistantEvent } from "../lib/api";
 import { ViperOrb } from "./ViperOrb";
+import { useReducedMotion } from "../hooks/useReducedMotion";
 
 type Msg = { role: "you" | "viper"; text: string };
 
@@ -8,11 +9,23 @@ const CHIPS = ["Who's at risk this week?", "This week's lateness", "Summarize Ai
 
 export function AssistantDock({ token }: { token: string | null }) {
   const [open, setOpen] = useState(false);
+  const [closing, setClosing] = useState(false);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
+  const [typing, setTyping] = useState(false);
   const runIdRef = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const reduced = useReducedMotion();
+
+  function close() {
+    if (reduced) {
+      // No animation fires, so unmount immediately.
+      setOpen(false);
+    } else {
+      setClosing(true);
+    }
+  }
 
   async function send(text: string) {
     const q = text.trim();
@@ -58,15 +71,30 @@ export function AssistantDock({ token }: { token: string | null }) {
   }
 
   if (!open) {
-    return <ViperOrb state={streaming ? "streaming" : "idle"} onClick={() => setOpen(true)} label="Open Ask Viper" />;
+    return <ViperOrb state={streaming ? "streaming" : "idle"} onClick={() => { setClosing(false); setOpen(true); }} label="Open Ask Viper" />;
   }
 
+  const dockDataAttrs = {
+    "data-streaming": streaming ? "true" : "false",
+    "data-reduced": reduced ? "true" : "false",
+    "data-closing": closing ? "true" : "false",
+  };
+
   return (
-    <section className="viper-dock glass" aria-label="Ask Viper">
+    <section
+      className="viper-dock glass"
+      aria-label="Ask Viper"
+      {...dockDataAttrs}
+      onAnimationEnd={(e) => {
+        if (e.animationName === "viper-pop-out") {
+          setOpen(false);
+          setClosing(false);
+        }
+      }}
+    >
       <header className="viper-dock__head">
-        <ViperOrb state={streaming ? "streaming" : "idle"} label="Viper" />
         <span className="viper-dock__title">Ask Viper</span>
-        <button type="button" className="viper-dock__close" onClick={() => setOpen(false)} aria-label="Collapse">
+        <button type="button" className="viper-dock__close" onClick={close} aria-label="Collapse">
           ×
         </button>
       </header>
@@ -82,15 +110,24 @@ export function AssistantDock({ token }: { token: string | null }) {
             </p>
           ))
         )}
+        {streaming && (
+          <div className="viper-dock__bubbles" aria-hidden="true">
+            <span className="viper-bubble" />
+            <span className="viper-bubble" />
+            <span className="viper-bubble" />
+          </div>
+        )}
       </div>
 
-      <div className="viper-dock__chips">
-        {CHIPS.map((c) => (
-          <button key={c} type="button" className="viper-chip" onClick={() => send(c)} disabled={streaming}>
-            {c}
-          </button>
-        ))}
-      </div>
+      {messages.length === 0 && (
+        <div className="viper-dock__chips">
+          {CHIPS.map((c) => (
+            <button key={c} type="button" className="viper-chip" onClick={() => send(c)} disabled={streaming}>
+              {c}
+            </button>
+          ))}
+        </div>
+      )}
 
       <form
         className="viper-dock__input"
@@ -101,10 +138,15 @@ export function AssistantDock({ token }: { token: string | null }) {
       >
         <input
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e) => {
+            setInput(e.target.value);
+            setTyping(e.target.value.length > 0);
+          }}
+          onBlur={() => setTyping(false)}
           placeholder="Ask…"
           aria-label="Message"
           disabled={streaming}
+          data-typing={typing && !streaming ? "true" : "false"}
         />
         {streaming ? (
           <button type="button" onClick={stop}>Stop</button>
