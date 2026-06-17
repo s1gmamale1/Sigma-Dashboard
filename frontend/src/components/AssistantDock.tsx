@@ -5,6 +5,18 @@ import { useReducedMotion } from "../hooks/useReducedMotion";
 
 type Msg = { role: "you" | "viper"; text: string };
 
+// Curated list of safe slash-commands to show in the palette.
+// Destructive or session-resetting commands are deliberately excluded.
+const SLASH_COMMANDS: { cmd: string; description: string }[] = [
+  { cmd: "/compact",  description: "Summarize & shrink the session context" },
+  { cmd: "/status",   description: "Session health snapshot" },
+  { cmd: "/usage",    description: "Token / cost summary" },
+  { cmd: "/think",    description: "Set thinking level" },
+  { cmd: "/model",    description: "Show or change the model" },
+  { cmd: "/stop",     description: "Stop the current run" },
+  { cmd: "/help",     description: "List available commands" },
+];
+
 interface ViperSession {
   id: string;
   name: string;
@@ -80,6 +92,9 @@ export function AssistantDock({ token }: { token: string | null }) {
   const abortRef = useRef<AbortController | null>(null);
   const reduced = useReducedMotion();
 
+  // Slash-command palette: visible when input starts with "/" and not yet sent.
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
   // Persist transcript whenever messages change.
   useEffect(() => {
     saveTranscript(activeId, messages);
@@ -139,8 +154,13 @@ export function AssistantDock({ token }: { token: string | null }) {
   }
 
   async function send(text: string) {
-    const q = text.trim();
+    let q = text.trim();
     if (!q || streaming) return;
+    // /compress is an alias for /compact (same effect, not a gateway command).
+    if (/^\/compress(\s|$)/i.test(q)) {
+      q = "/compact" + q.slice("/compress".length);
+    }
+    setPaletteOpen(false);
     setInput("");
     setMessages((m) => [...m, { role: "you", text: q }, { role: "viper", text: "" }]);
     setStreaming(true);
@@ -292,6 +312,35 @@ export function AssistantDock({ token }: { token: string | null }) {
         </div>
       )}
 
+      {paletteOpen && (() => {
+        const query = input.slice(1).toLowerCase();
+        const matches = SLASH_COMMANDS.filter(({ cmd }) =>
+          cmd.slice(1).startsWith(query)
+        );
+        if (matches.length === 0) return null;
+        return (
+          <ul className="viper-cmd-palette" role="listbox" aria-label="Slash commands">
+            {matches.map(({ cmd, description }) => (
+              <li
+                key={cmd}
+                className="viper-cmd-palette__item"
+                role="option"
+                aria-selected={false}
+                onMouseDown={(e) => {
+                  // mouseDown fires before input blur; prevent blur so we can setInput.
+                  e.preventDefault();
+                  setInput(cmd);
+                  setPaletteOpen(false);
+                }}
+              >
+                <span className="viper-cmd-palette__cmd">{cmd}</span>
+                <span className="viper-cmd-palette__desc">{description}</span>
+              </li>
+            ))}
+          </ul>
+        );
+      })()}
+
       <form
         className="viper-dock__input"
         onSubmit={(e) => {
@@ -302,10 +351,18 @@ export function AssistantDock({ token }: { token: string | null }) {
         <input
           value={input}
           onChange={(e) => {
-            setInput(e.target.value);
-            setTyping(e.target.value.length > 0);
+            const val = e.target.value;
+            setInput(val);
+            setTyping(val.length > 0);
+            setPaletteOpen(val.startsWith("/") && !streaming);
           }}
           onBlur={() => setTyping(false)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape" && paletteOpen) {
+              e.preventDefault();
+              setPaletteOpen(false);
+            }
+          }}
           placeholder="Ask…"
           aria-label="Message"
           disabled={streaming}
