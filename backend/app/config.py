@@ -26,7 +26,11 @@ class Settings(BaseSettings):
     frontend_dist_path: str = "frontend/dist"
     gateway_ws_url: str = "ws://127.0.0.1:18789"
     gateway_token: str = ""
-    gateway_agent: str = "viper"
+    # Default to the read-only "viper-chat" agent (OpenClaw allows it only
+    # Read/Grep/Glob — it cannot send_message / write sheets / edit cron), so a
+    # missing or blank SIGMA_GATEWAY_AGENT can never fall back to the
+    # action-capable live "viper". Set SIGMA_GATEWAY_AGENT=viper in .env for live-fire.
+    gateway_agent: str = "viper-chat"
     gateway_session: str = "dashboard"
     assistant_enabled: bool = False
     assistant_idle_timeout_s: float = 120.0
