@@ -54,7 +54,7 @@ def test_gateway_client_streams_run_delta_final(monkeypatch):
     fake = FakeWS(frames)
     monkeypatch.setattr(assistant.websockets, "connect", lambda *a, **k: fake)
 
-    client = assistant.GatewayClient(Settings(gateway_token="x" * 32, assistant_enabled=True))
+    client = assistant.GatewayClient(Settings(gateway_token="x" * 32, assistant_enabled=True, gateway_agent="viper"))
     out = asyncio.run(_collect(client.stream_chat("hi")))
 
     assert [e["kind"] for e in out] == ["run", "delta", "final"]
@@ -97,6 +97,10 @@ _TEST_SETTINGS = dict(
     jwt_secret="unit-test-jwt-secret-0123456789",
     viper_token="unit-test-viper-token-0123456789",
     gateway_token="x" * 32,
+    # Pin so tests don't inherit the ambient .env (SIGMA_GATEWAY_AGENT) — these
+    # tests assert the exact built session key, so the agent must be fixed here.
+    gateway_agent="viper",
+    gateway_session="dashboard",
 )
 
 
@@ -206,7 +210,7 @@ def test_gateway_client_surfaces_chat_send_rejection(monkeypatch):
     ]
     fake = FakeWS(frames)
     monkeypatch.setattr(assistant.websockets, "connect", lambda *a, **k: fake)
-    client = assistant.GatewayClient(Settings(gateway_token="x" * 32, assistant_enabled=True))
+    client = assistant.GatewayClient(Settings(gateway_token="x" * 32, assistant_enabled=True, gateway_agent="viper"))
     out = asyncio.run(_collect(client.stream_chat("hi")))
     assert [e["kind"] for e in out] == ["error"]
     assert "operator.write" in out[0]["message"]
@@ -280,7 +284,7 @@ def test_chat_with_custom_session_sends_correct_key_to_gateway(monkeypatch):
     fake = FakeWS(frames)
     monkeypatch.setattr(assistant.websockets, "connect", lambda *a, **k: fake)
 
-    client = assistant.GatewayClient(Settings(gateway_token="x" * 32, assistant_enabled=True))
+    client = assistant.GatewayClient(Settings(gateway_token="x" * 32, assistant_enabled=True, gateway_agent="viper"))
     out = asyncio.run(_collect(client.stream_chat("hi", session_key="agent:viper:dashboard-xyz")))
 
     assert [e["kind"] for e in out] == ["run", "final"]
