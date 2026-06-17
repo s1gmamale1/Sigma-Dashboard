@@ -16,7 +16,7 @@ from typing import Any
 import websockets
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .auth import require_edit
 from .config import Settings, get_settings
@@ -82,6 +82,12 @@ class GatewayClient:
                     return
                 frame = json.loads(raw)
                 if frame.get("type") == "res" and frame.get("id") == "r1":
+                    if not frame.get("ok"):
+                        err = frame.get("error") or {}
+                        yield {"kind": "error",
+                               "message": err.get("message", "chat.send rejected"),
+                               "errorKind": err.get("code")}
+                        return
                     run_id = frame.get("payload", {}).get("runId")
                     if run_id:
                         yield {"kind": "run", "runId": run_id}
@@ -116,7 +122,7 @@ class GatewayClient:
 
 class ChatRequest(BaseModel):
     model_config = {"extra": "forbid"}
-    message: str
+    message: str = Field(min_length=1, max_length=4000)
 
 
 class AbortRequest(BaseModel):

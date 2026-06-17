@@ -2568,6 +2568,8 @@
         "properties": {
           "message": {
             "type": "string",
+            "maxLength": 4000,
+            "minLength": 1,
             "title": "Message"
           }
         },

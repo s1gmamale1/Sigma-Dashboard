@@ -189,3 +189,31 @@ def test_chat_rejects_viewer_role():
         assert r.status_code == 403
     finally:
         app.dependency_overrides.clear()
+
+
+def test_gateway_client_surfaces_chat_send_rejection(monkeypatch):
+    # A gateway rejection (res ok:false, no runId) must terminate immediately
+    # with the real error — not stall until the idle timeout reporting "timeout".
+    frames = [
+        json.dumps({"event": "connect.challenge", "payload": {"nonce": "n"}}),
+        json.dumps({"type": "res", "id": "c1", "ok": True, "payload": {"type": "hello-ok"}}),
+        json.dumps({"type": "res", "id": "r1", "ok": False,
+                    "error": {"code": "INVALID_REQUEST", "message": "missing scope: operator.write"}}),
+    ]
+    fake = FakeWS(frames)
+    monkeypatch.setattr(assistant.websockets, "connect", lambda *a, **k: fake)
+    client = assistant.GatewayClient(Settings(gateway_token="x" * 32, assistant_enabled=True))
+    out = asyncio.run(_collect(client.stream_chat("hi")))
+    assert [e["kind"] for e in out] == ["error"]
+    assert "operator.write" in out[0]["message"]
+    assert out[0]["errorKind"] == "INVALID_REQUEST"
+
+
+def test_chat_rejects_empty_message():
+    _override()
+    try:
+        c = TestClient(app)
+        r = c.post("/api/v1/assistant/chat", json={"message": ""})
+        assert r.status_code == 422
+    finally:
+        app.dependency_overrides.clear()
