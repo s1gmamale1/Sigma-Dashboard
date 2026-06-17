@@ -23,6 +23,32 @@ from .config import Settings, get_settings
 from .models import User
 from .schemas import Envelope
 
+def _extract_message_text(message: Any) -> str:
+    """Extract displayable text from a gateway final event's message field.
+
+    Handles the three shapes the gateway may send:
+      - dict with content list: {"role":"assistant","content":[{"type":"text","text":"..."},...]}
+      - dict with plain text key: {"text":"..."}
+      - plain str
+    Returns "" when nothing can be extracted.
+    """
+    if isinstance(message, str):
+        return message
+    if not isinstance(message, dict):
+        return ""
+    content = message.get("content")
+    if isinstance(content, list):
+        return "".join(
+            item.get("text", "")
+            for item in content
+            if isinstance(item, dict) and item.get("type") == "text"
+        )
+    text = message.get("text")
+    if isinstance(text, str):
+        return text
+    return ""
+
+
 # Confirmed by the Phase 0 spike: must be the Control-UI operator id + webchat
 # mode + a loopback Origin header, or the gateway denies operator.write on chat.send.
 CLIENT_ID = "openclaw-control-ui"
@@ -69,6 +95,7 @@ class GatewayClient:
                            "idempotencyKey": str(uuid.uuid4())},
             }))
             run_id: str | None = None
+            saw_delta = False
             while True:
                 try:
                     async with asyncio.timeout(self._idle_timeout):
@@ -98,8 +125,15 @@ class GatewayClient:
                 p = frame.get("payload", {})
                 state = p.get("state")
                 if state == "delta":
+                    saw_delta = True
                     yield {"kind": "delta", "text": p.get("deltaText", "")}
                 elif state == "final":
+                    # Command replies arrive as a final with message body and NO delta frames.
+                    # Surface the text as a synthetic delta so the frontend renders it.
+                    if not saw_delta:
+                        text = _extract_message_text(p.get("message"))
+                        if text:
+                            yield {"kind": "delta", "text": text}
                     yield {"kind": "final", "stopReason": p.get("stopReason")}
                     return
                 elif state == "error":

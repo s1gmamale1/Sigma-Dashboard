@@ -273,6 +273,57 @@ def test_abort_request_rejects_colon_in_session():
         app.dependency_overrides.clear()
 
 
+def test_extract_message_text_content_list():
+    """Content-list shape: join all type==text items."""
+    msg = {"role": "assistant", "content": [
+        {"type": "text", "text": "⚙️ Compacted"},
+        {"type": "tool_use", "id": "t1"},  # non-text item — skip
+        {"type": "text", "text": " (42k → 18k)"},
+    ]}
+    assert assistant._extract_message_text(msg) == "⚙️ Compacted (42k → 18k)"
+
+
+def test_extract_message_text_plain_str():
+    assert assistant._extract_message_text("hello") == "hello"
+
+
+def test_extract_message_text_empty():
+    assert assistant._extract_message_text(None) == ""
+    assert assistant._extract_message_text({}) == ""
+    assert assistant._extract_message_text({"content": []}) == ""
+
+
+def test_gateway_client_command_reply_yields_run_delta_final(monkeypatch):
+    """A slash-command reply: final arrives with message body and NO delta frames.
+    stream_chat must synthesise a delta from the message content.
+    """
+    frames = [
+        json.dumps({"event": "connect.challenge", "payload": {"nonce": "n"}}),
+        json.dumps({"type": "res", "id": "c1", "ok": True, "payload": {"type": "hello-ok"}}),
+        json.dumps({"type": "res", "id": "r1", "ok": True, "payload": {"runId": "run_cmd1"}}),
+        json.dumps({
+            "type": "event", "event": "chat",
+            "payload": {
+                "state": "final",
+                "message": {
+                    "role": "assistant",
+                    "content": [{"type": "text", "text": "⚙️ Compacted (42k → 18k)"}],
+                },
+                "stopReason": "end_turn",
+            },
+        }),
+    ]
+    fake = FakeWS(frames)
+    monkeypatch.setattr(assistant.websockets, "connect", lambda *a, **k: fake)
+
+    client = assistant.GatewayClient(Settings(gateway_token="x" * 32, assistant_enabled=True, gateway_agent="viper"))
+    out = asyncio.run(_collect(client.stream_chat("/compact")))
+
+    assert [e["kind"] for e in out] == ["run", "delta", "final"]
+    delta = next(e for e in out if e["kind"] == "delta")
+    assert "Compacted" in delta["text"]
+
+
 def test_chat_with_custom_session_sends_correct_key_to_gateway(monkeypatch):
     """chat.send must carry sessionKey = agent:viper:<session> when session is overridden."""
     frames = [
