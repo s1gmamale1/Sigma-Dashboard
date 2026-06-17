@@ -52,6 +52,9 @@ class SheetSyncResult(StrictModel):
     error_message: str | None = None
 
 
+UserRole = Literal["admin", "manager", "viewer"]
+
+
 class LoginRequest(StrictModel):
     username: str = Field(min_length=1, max_length=120, examples=["admin"])
     password: str = Field(min_length=1, max_length=300, examples=["your-admin-password"])
@@ -61,6 +64,60 @@ class LoginResponse(StrictModel):
     access_token: str
     token_type: Literal["bearer"] = "bearer"
     expires_at: datetime
+    username: str
+    display_name: str
+    role: UserRole
+    must_change_password: bool
+
+
+class MeOut(StrictModel):
+    """The signed-in user plus the role's permission map (drives frontend gating)."""
+
+    username: str
+    display_name: str
+    role: UserRole
+    permissions: dict[str, list[str]]
+    must_change_password: bool
+
+
+class ChangePasswordRequest(StrictModel):
+    current_password: str = Field(min_length=1, max_length=300)
+    new_password: str = Field(min_length=6, max_length=300)
+
+
+class UserOut(StrictModel):
+    id: int
+    username: str
+    display_name: str
+    role: UserRole
+    active: bool
+    must_change_password: bool
+    last_login_at: datetime | None
+    created_at: datetime
+
+
+class UserCreate(StrictModel):
+    username: str = Field(min_length=1, max_length=120, examples=["cody"])
+    display_name: str = Field(min_length=1, max_length=160, examples=["Cody"])
+    role: UserRole = "viewer"
+    temp_password: str = Field(min_length=6, max_length=300)
+    # A freshly created account defaults to forcing a password change on first login.
+    must_change_password: bool = True
+
+
+class UserUpdate(StrictModel):
+    display_name: str | None = Field(default=None, min_length=1, max_length=160)
+    role: UserRole | None = None
+    active: bool | None = None
+
+
+class ResetPasswordRequest(StrictModel):
+    temp_password: str = Field(min_length=6, max_length=300)
+    must_change_password: bool = True
+
+
+class UserDeleted(StrictModel):
+    id: int
 
 
 class PersonOut(StrictModel):

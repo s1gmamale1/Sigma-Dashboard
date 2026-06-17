@@ -21,7 +21,7 @@ from backend.app.bootstrap import seed_db
 from backend.app.config import get_settings
 from backend.app.db import Base, get_db
 from backend.app.main import app
-from backend.app.models import Goal, ProjectCondition, ProjectTopic
+from backend.app.models import Goal, ProjectCondition, ProjectTopic, User
 
 
 def _make_client() -> tuple[TestClient, Session]:
@@ -35,6 +35,16 @@ def _make_client() -> tuple[TestClient, Session]:
     Base.metadata.create_all(engine)
     session = Session(engine)
     seed_db(session)
+    session.add(
+        User(
+            username=get_settings().admin_username,
+            display_name="Admin",
+            password_hash="unused-for-token-auth",
+            role="admin",
+            active=True,
+            must_change_password=False,
+        )
+    )
     session.commit()
 
     def override_db():
@@ -48,7 +58,7 @@ def _make_client() -> tuple[TestClient, Session]:
 
 def _auth() -> dict[str, str]:
     settings = get_settings()
-    token = create_access_token(settings, settings.admin_username)[0]
+    token = create_access_token(settings, settings.admin_username, "admin")[0]
     return {"Authorization": f"Bearer {token}"}
 
 

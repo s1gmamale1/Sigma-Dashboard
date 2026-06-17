@@ -1,8 +1,12 @@
 import pytest
 from fastapi import HTTPException
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
+from sqlalchemy.pool import StaticPool
 
-from backend.app.auth import require_viper, verify_password
+from backend.app.auth import check_password, hash_password, require_viper
 from backend.app.config import Settings
+from backend.app.db import Base, get_db
 
 
 def make_settings(**overrides) -> Settings:
@@ -16,11 +20,15 @@ def make_settings(**overrides) -> Settings:
     return Settings(**values)
 
 
-def test_verify_password_plaintext_fallback() -> None:
-    settings = make_settings()
-    assert verify_password(settings, "correct-horse-battery") is True
-    assert verify_password(settings, "wrong") is False
-    assert verify_password(make_settings(admin_password=None), "anything") is False
+def test_hash_and_check_password_round_trip() -> None:
+    digest = hash_password("correct-horse-battery")
+    assert digest.startswith("$2b$")
+    assert check_password("correct-horse-battery", digest) is True
+    assert check_password("wrong", digest) is False
+    # An over-long password is rejected, never silently truncated.
+    assert check_password("x" * 100, digest) is False
+    with pytest.raises(ValueError):
+        hash_password("x" * 100)
 
 
 def test_require_viper_accepts_and_rejects() -> None:
@@ -49,7 +57,13 @@ def test_login_rate_limited_after_five_attempts() -> None:
     from backend.app.config import get_settings
     from backend.app.main import app
 
+    # Self-contained empty users table so login can query without touching the real DB.
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    Base.metadata.create_all(engine)
+    session = Session(engine)
+
     app.dependency_overrides[get_settings] = lambda: make_settings()
+    app.dependency_overrides[get_db] = lambda: (yield session)
     ratelimit.reset()
     try:
         client = TestClient(app)
@@ -64,4 +78,5 @@ def test_login_rate_limited_after_five_attempts() -> None:
         assert response.status_code == 429
     finally:
         app.dependency_overrides.pop(get_settings, None)
+        app.dependency_overrides.pop(get_db, None)
         ratelimit.reset()

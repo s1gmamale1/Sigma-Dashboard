@@ -1,0 +1,92 @@
+/* users — admin account management. Calm working surface (no Sigma flourish). */
+
+.users-view {
+  gap: var(--sp-4);
+}
+
+.users-create {
+  display: grid;
+  gap: var(--sp-3);
+}
+
+.users-create__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--sp-3);
+}
+
+.users-create .field,
+.users-table .field {
+  color: var(--label-secondary);
+  font-weight: 600;
+  font-size: var(--type-subhead);
+  display: grid;
+  gap: 6px;
+}
+
+.users-create input,
+.users-create select,
+.users-table select {
+  min-height: 40px;
+  border: 1px solid var(--separator);
+  border-radius: var(--r-control);
+  padding: 0 var(--sp-3);
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  color: var(--label);
+  font-size: var(--type-body);
+}
+
+.users-create input:focus-visible,
+.users-create select:focus-visible,
+.users-table select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+
+.users-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.users-table th {
+  text-align: left;
+  font-size: var(--type-subhead);
+  color: var(--label-secondary);
+  font-weight: 600;
+  padding: var(--sp-2) var(--sp-3);
+}
+
+.users-table td {
+  padding: var(--sp-2) var(--sp-3);
+  border-top: 1px solid var(--separator);
+  vertical-align: middle;
+}
+
+.users-table tr.is-disabled {
+  opacity: 0.55;
+}
+
+.users-table__name {
+  display: grid;
+  gap: 2px;
+}
+
+.users-table__actions {
+  display: flex;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.muted {
+  color: var(--label-secondary);
+  font-size: var(--type-subhead);
+  font-weight: 500;
+}
+
+.form-hint {
+  margin: 0;
+  color: var(--label-secondary);
+  font-size: var(--type-subhead);
+}

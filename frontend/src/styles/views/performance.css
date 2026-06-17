@@ -162,6 +162,30 @@
   text-align: center;
 }
 
+/* Podium — top 3 ranks get gold / silver / bronze medals */
+.perf-rank--medal {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin: 0 auto;
+  border-radius: var(--r-pill);
+  color: #2e2400;
+  font-weight: 800;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+.perf-rank--medal-1 {
+  background: linear-gradient(150deg, #ffd66b, #f0a73a);
+}
+.perf-rank--medal-2 {
+  background: linear-gradient(150deg, #e9edf4, #b9c0cf);
+  color: #33384a;
+}
+.perf-rank--medal-3 {
+  background: linear-gradient(150deg, #f0b487, #cc7d4e);
+  color: #3a2110;
+}
+
 .perf-name {
   font-weight: 600;
   overflow: hidden;

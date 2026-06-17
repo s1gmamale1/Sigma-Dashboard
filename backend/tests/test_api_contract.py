@@ -8,10 +8,16 @@ from sqlalchemy.pool import StaticPool
 
 from backend.app.bootstrap import seed_db
 from backend.app.models import Person
-from backend.app.config import Settings
 from backend.app.db import Base, get_db
 from backend.app.main import app
-from backend.app.auth import require_admin, require_viper, verify_password
+from backend.app.auth import (
+    check_password,
+    hash_password,
+    require_admin,
+    require_edit,
+    require_view,
+    require_viper,
+)
 
 
 def client_with_db() -> TestClient:
@@ -34,6 +40,8 @@ def client_with_db() -> TestClient:
 
     app.dependency_overrides[get_db] = override_db
     app.dependency_overrides[require_admin] = lambda: "admin"
+    app.dependency_overrides[require_view] = lambda: "admin"
+    app.dependency_overrides[require_edit] = lambda: "admin"
     app.dependency_overrides[require_viper] = lambda: "viper"
     return TestClient(app)
 
@@ -75,15 +83,10 @@ def test_viper_can_write_and_admin_can_read_with_envelope() -> None:
     assert body["data"][0]["person"]["slug"] == "abdul"
 
 
-def test_bcrypt_admin_hash_verification() -> None:
-    settings = Settings(
-        jwt_secret="test-secret-change-me-32",
-        viper_token="test-viper-token-change-me-32",
-        admin_password_hash="$2b$12$b5U.pKbL52ULaaF3AfYSd.hoWwwGoXaoTXNC/TZK59ZPKtb/3uwSq",
-    )
-
-    assert verify_password(settings, "short-test-password")
-    assert not verify_password(settings, "wrong-password")
+def test_bcrypt_password_hash_verification() -> None:
+    digest = hash_password("short-test-password")
+    assert check_password("short-test-password", digest)
+    assert not check_password("wrong-password", digest)
 
 
 def test_viper_evaluation_rejects_noncanonical_grade() -> None:

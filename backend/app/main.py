@@ -73,7 +73,8 @@ Two schemes (see the **Authorize** button):
 """
 
 OPENAPI_TAGS = [
-    {"name": "Auth", "description": "Obtain an admin session token."},
+    {"name": "Auth", "description": "Log in, inspect the current user, and change your own password."},
+    {"name": "Users", "description": "Admin-only account management — create, edit, reset, disable, and delete users."},
     {"name": "Dashboard", "description": "Aggregated home view for a shift day."},
     {"name": "Attendance", "description": "Tonight's shift, history grid, weekly lateness summary, and chase state."},
     {"name": "Reports", "description": "Daily reports and the performance roll-up."},
@@ -142,6 +143,9 @@ def create_app() -> FastAPI:
         return error_response(422, "UNKNOWN_PERSON", str(exc))
 
     app.include_router(router)
+
+    from .assistant import router as assistant_router
+    app.include_router(assistant_router)
 
     dist = Path(settings.frontend_dist_path)
     if dist.exists():

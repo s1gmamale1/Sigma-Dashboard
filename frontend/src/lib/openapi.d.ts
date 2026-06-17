@@ -15,9 +15,11 @@ export interface paths {
         put?: never;
         /**
          * Log in as admin
-         * @description Exchange an admin username + password for a bearer JWT.
+         * @description Exchange a username + password for a bearer JWT.
          *
-         *     Returns `data.access_token` (send it as `Authorization: Bearer <token>`) and `data.expires_at`.
+         *     Returns `data.access_token` (send it as `Authorization: Bearer <token>`), the
+         *     account's `role`, and `must_change_password` (true when the password is a temp
+         *     one that must be rotated before the rest of the API will respond).
          */
         post: operations["login_api_v1_auth_login_post"];
         delete?: never;
@@ -552,10 +554,161 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Current signed-in user
+         * @description The signed-in account plus its role permission map. Reachable even when a
+         *     temp-password change is pending, so the frontend can show the change-password screen.
+         */
+        get: operations["auth_me_api_v1_auth_me_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/change-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change your own password
+         * @description Set a new password for the signed-in account. Clears the temp-password flag,
+         *     so after this call the rest of the API responds normally.
+         */
+        post: operations["change_password_api_v1_auth_change_password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List users
+         * @description All login accounts, ordered by username. Admin only.
+         */
+        get: operations["list_users_api_v1_users_get"];
+        put?: never;
+        /**
+         * Create a user
+         * @description Create a login account with a temp password (defaults to forcing a change on first login).
+         */
+        post: operations["create_user_api_v1_users_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a user
+         * @description Permanently delete a user. You cannot delete yourself or the last active admin —
+         *     disable those instead (PATCH active=false).
+         */
+        delete: operations["delete_user_api_v1_users__user_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a user
+         * @description Change a user's display name, role, or active flag. Refuses to demote or disable
+         *     the last active admin (so you can never lock everyone out).
+         */
+        patch: operations["update_user_api_v1_users__user_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/users/{user_id}/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset a user's password
+         * @description Set a new temp password for a user (defaults to forcing a change on next login).
+         */
+        post: operations["reset_user_password_api_v1_users__user_id__reset_password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assistant/chat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Assistant Chat */
+        post: operations["assistant_chat_api_v1_assistant_chat_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/assistant/abort": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Assistant Abort */
+        post: operations["assistant_abort_api_v1_assistant_abort_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AbortRequest */
+        AbortRequest: {
+            /** Run Id */
+            run_id: string;
+        };
         /** AttendanceCell */
         AttendanceCell: {
             /**
@@ -605,6 +758,13 @@ export interface components {
             /** Notes */
             notes: string | null;
         };
+        /** ChangePasswordRequest */
+        ChangePasswordRequest: {
+            /** Current Password */
+            current_password: string;
+            /** New Password */
+            new_password: string;
+        };
         /** ChasePatchRequest */
         ChasePatchRequest: {
             /**
@@ -613,6 +773,11 @@ export interface components {
              * @enum {string}
              */
             chase_state: "none" | "needs_chase" | "chased" | "resolved";
+        };
+        /** ChatRequest */
+        ChatRequest: {
+            /** Message */
+            message: string;
         };
         /** DashboardOverview */
         DashboardOverview: {
@@ -725,6 +890,15 @@ export interface components {
             };
             error?: components["schemas"]["ErrorBody"] | null;
         };
+        /** Envelope[MeOut] */
+        Envelope_MeOut_: {
+            data?: components["schemas"]["MeOut"] | null;
+            /** Meta */
+            meta?: {
+                [key: string]: unknown;
+            };
+            error?: components["schemas"]["ErrorBody"] | null;
+        };
         /** Envelope[ProjectConditionOut] */
         Envelope_ProjectConditionOut_: {
             data?: components["schemas"]["ProjectConditionOut"] | null;
@@ -746,6 +920,24 @@ export interface components {
         /** Envelope[SheetSyncResult] */
         Envelope_SheetSyncResult_: {
             data?: components["schemas"]["SheetSyncResult"] | null;
+            /** Meta */
+            meta?: {
+                [key: string]: unknown;
+            };
+            error?: components["schemas"]["ErrorBody"] | null;
+        };
+        /** Envelope[UserDeleted] */
+        Envelope_UserDeleted_: {
+            data?: components["schemas"]["UserDeleted"] | null;
+            /** Meta */
+            meta?: {
+                [key: string]: unknown;
+            };
+            error?: components["schemas"]["ErrorBody"] | null;
+        };
+        /** Envelope[UserOut] */
+        Envelope_UserOut_: {
+            data?: components["schemas"]["UserOut"] | null;
             /** Meta */
             meta?: {
                 [key: string]: unknown;
@@ -826,6 +1018,16 @@ export interface components {
         Envelope_list_ReportOut__: {
             /** Data */
             data?: components["schemas"]["ReportOut"][] | null;
+            /** Meta */
+            meta?: {
+                [key: string]: unknown;
+            };
+            error?: components["schemas"]["ErrorBody"] | null;
+        };
+        /** Envelope[list[UserOut]] */
+        Envelope_list_UserOut__: {
+            /** Data */
+            data?: components["schemas"]["UserOut"][] | null;
             /** Meta */
             meta?: {
                 [key: string]: unknown;
@@ -1010,6 +1212,38 @@ export interface components {
              * Format: date-time
              */
             expires_at: string;
+            /** Username */
+            username: string;
+            /** Display Name */
+            display_name: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "admin" | "manager" | "viewer";
+            /** Must Change Password */
+            must_change_password: boolean;
+        };
+        /**
+         * MeOut
+         * @description The signed-in user plus the role's permission map (drives frontend gating).
+         */
+        MeOut: {
+            /** Username */
+            username: string;
+            /** Display Name */
+            display_name: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "admin" | "manager" | "viewer";
+            /** Permissions */
+            permissions: {
+                [key: string]: string[];
+            };
+            /** Must Change Password */
+            must_change_password: boolean;
         };
         /** PerformanceRow */
         PerformanceRow: {
@@ -1214,6 +1448,16 @@ export interface components {
             /** Assignments */
             assignments?: string[];
         };
+        /** ResetPasswordRequest */
+        ResetPasswordRequest: {
+            /** Temp Password */
+            temp_password: string;
+            /**
+             * Must Change Password
+             * @default true
+             */
+            must_change_password: boolean;
+        };
         /**
          * SheetSyncResult
          * @description Outcome of a Google Sheet attendance sync run.
@@ -1229,6 +1473,71 @@ export interface components {
             finished_at?: string | null;
             /** Error Message */
             error_message?: string | null;
+        };
+        /** UserCreate */
+        UserCreate: {
+            /**
+             * Username
+             * @example cody
+             */
+            username: string;
+            /**
+             * Display Name
+             * @example Cody
+             */
+            display_name: string;
+            /**
+             * Role
+             * @default viewer
+             * @enum {string}
+             */
+            role: "admin" | "manager" | "viewer";
+            /** Temp Password */
+            temp_password: string;
+            /**
+             * Must Change Password
+             * @default true
+             */
+            must_change_password: boolean;
+        };
+        /** UserDeleted */
+        UserDeleted: {
+            /** Id */
+            id: number;
+        };
+        /** UserOut */
+        UserOut: {
+            /** Id */
+            id: number;
+            /** Username */
+            username: string;
+            /** Display Name */
+            display_name: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "admin" | "manager" | "viewer";
+            /** Active */
+            active: boolean;
+            /** Must Change Password */
+            must_change_password: boolean;
+            /** Last Login At */
+            last_login_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** UserUpdate */
+        UserUpdate: {
+            /** Display Name */
+            display_name?: string | null;
+            /** Role */
+            role?: ("admin" | "manager" | "viewer") | null;
+            /** Active */
+            active?: boolean | null;
         };
         /** ValidationError */
         ValidationError: {
@@ -2579,6 +2888,450 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Envelope"];
+                };
+            };
+        };
+    };
+    auth_me_api_v1_auth_me_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_MeOut_"];
+                };
+            };
+            /** @description Missing or invalid admin bearer token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+        };
+    };
+    change_password_api_v1_auth_change_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_MeOut_"];
+                };
+            };
+            /** @description Current password is incorrect. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            /** @description Missing or invalid admin bearer token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_users_api_v1_users_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_list_UserOut__"];
+                };
+            };
+            /** @description Missing or invalid admin bearer token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            /** @description Admin access required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+        };
+    };
+    create_user_api_v1_users_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_UserOut_"];
+                };
+            };
+            /** @description Missing or invalid admin bearer token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            /** @description Admin access required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            /** @description Username already exists. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_user_api_v1_users__user_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_UserDeleted_"];
+                };
+            };
+            /** @description Cannot delete yourself or the last admin. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            /** @description Missing or invalid admin bearer token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            /** @description Admin access required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            /** @description Resource not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_user_api_v1_users__user_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_UserOut_"];
+                };
+            };
+            /** @description Missing or invalid admin bearer token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            /** @description Admin access required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            /** @description Resource not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            /** @description Would remove the last active admin. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reset_user_password_api_v1_users__user_id__reset_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetPasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_UserOut_"];
+                };
+            };
+            /** @description Missing or invalid admin bearer token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            /** @description Admin access required. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            /** @description Resource not found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    assistant_chat_api_v1_assistant_chat_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChatRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    assistant_abort_api_v1_assistant_abort_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AbortRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

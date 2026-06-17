@@ -72,7 +72,9 @@
 .topbar__nav {
   min-width: 0;
   display: flex;
-  justify-content: center;
+  /* safe center: if the tabs ever exceed the bar, fall back to start-aligned and
+     scroll, instead of overflowing both ends and clipping under brand/actions. */
+  justify-content: safe center;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -273,14 +275,16 @@
   z-index: 1;
   display: inline-flex;
   align-items: center;
-  gap: var(--sp-1);
+  justify-content: center;
+  gap: 3px;
   min-height: 36px;
   min-width: 44px;
-  padding: 0 var(--sp-2);
+  padding: 0 6px;
   border-radius: var(--r-pill);
   color: var(--label-secondary);
   font-size: var(--type-subhead);
   font-weight: 500;
+  white-space: nowrap;
   transition: color var(--dur-snappy) var(--ease-out);
 }
 .segmented__item.is-active {
@@ -290,12 +294,13 @@
 .segmented__item:active {
   transform: scale(0.97);
 }
-/* Collapse tab labels to icons once the labeled nav can no longer fit the bar
-   alongside the brand + actions, so it degrades cleanly instead of scrolling. */
-@media (max-width: 1320px) {
-  .segmented__label {
-    display: none;
-  }
+/* The dashboard nav is an icon tab bar. With up to 8 tabs it can never fit as
+   full labels alongside the brand + date controls inside the capped bar, so
+   icons keep all tabs visible and aligned at every width (names via title +
+   the large view heading). Scoped to the topbar so OTHER segmented controls —
+   e.g. the Performance period selector, which has no icons — keep their text. */
+.topbar__nav .segmented__label {
+  display: none;
 }
 
 /* Skeleton */

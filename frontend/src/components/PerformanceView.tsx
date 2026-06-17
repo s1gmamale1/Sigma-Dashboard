@@ -212,7 +212,12 @@ function LeaderboardRow({
         aria-label={`Rank ${rank}, ${row.person.display_name}, grade ${row.composite_grade}`}
         onClick={onToggle}
       >
-        <span className="perf-rank num" aria-hidden="true">{rank}</span>
+        <span
+          className={`perf-rank num${rank <= 3 ? ` perf-rank--medal perf-rank--medal-${rank}` : ""}`}
+          aria-hidden="true"
+        >
+          {rank}
+        </span>
         <GradePill grade={row.composite_grade} />
         <span className="perf-name">{row.person.display_name}</span>
         <span className="perf-rating">

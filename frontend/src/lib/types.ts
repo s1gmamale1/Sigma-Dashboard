@@ -1,5 +1,25 @@
 export type Status = "on_time" | "late" | "late_15" | "no_show" | "absent" | "off_day";
 export type ChaseState = "none" | "needs_chase" | "chased" | "resolved";
+export type UserRole = "admin" | "manager" | "viewer";
+
+export interface Me {
+  username: string;
+  display_name: string;
+  role: UserRole;
+  permissions: Record<string, string[]>;
+  must_change_password: boolean;
+}
+
+export interface UserAccount {
+  id: number;
+  username: string;
+  display_name: string;
+  role: UserRole;
+  active: boolean;
+  must_change_password: boolean;
+  last_login_at: string | null;
+  created_at: string;
+}
 
 export interface Envelope<T> {
   data: T;

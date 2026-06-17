@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { useReducedMotion } from "../hooks/useReducedMotion";
 
 export interface Datum {
@@ -22,6 +23,7 @@ export function BarChart({
   seriesLabels?: [string, string];
 }) {
   const reduced = useReducedMotion();
+  const gid = useId();
   // Coerce to a finite number so a missing/NaN datum can never produce invalid SVG geometry.
   const num = (n: number | undefined) => (Number.isFinite(n) ? (n as number) : 0);
   const grouped = data.some((d) => d.value2 != null);
@@ -40,6 +42,16 @@ export function BarChart({
         className="chart__svg"
         style={{ height: `${height}px` }}
       >
+        <defs>
+          <linearGradient id={`${gid}-a`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#67a7ff" />
+            <stop offset="100%" stopColor="#bc82f3" />
+          </linearGradient>
+          <linearGradient id={`${gid}-b`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#ff646a" />
+            <stop offset="100%" stopColor="#ef638a" />
+          </linearGradient>
+        </defs>
         <line x1="0" y1={H - pad} x2={W} y2={H - pad} className="chart__axis" />
         {data.map((d, i) => {
           const cx = pad + slot * i + slot / 2;
@@ -60,6 +72,7 @@ export function BarChart({
               height={Math.max(0, b.h)}
               rx="1.5"
               style={{
+                fill: b.cls.includes("--2") ? `url(#${gid}-b)` : `url(#${gid}-a)`,
                 transformOrigin: `center ${H - pad}px`,
                 animation: reduced ? "none" : `chart-grow var(--dur-smooth) var(--spring-smooth) both`,
                 animationDelay: reduced ? undefined : `${i * 30}ms`

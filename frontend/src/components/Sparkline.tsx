@@ -74,12 +74,17 @@ export function Sparkline({
           <stop offset="0%" className="sparkline__stop-top" />
           <stop offset="100%" className="sparkline__stop-bottom" />
         </linearGradient>
+        <linearGradient id={`${gradientId}-s`} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#67a7ff" />
+          <stop offset="100%" stopColor="#bc82f3" />
+        </linearGradient>
       </defs>
       <path className="sparkline__area" d={areaPath} fill={`url(#${gradientId})`} />
       <path
         className="sparkline__line"
         d={linePath}
         style={{
+          stroke: `url(#${gradientId}-s)`,
           animation: reduced ? "none" : `sparkline-draw var(--dur-smooth) var(--ease-out) both`
         }}
       />

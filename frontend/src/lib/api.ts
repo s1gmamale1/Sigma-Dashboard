@@ -9,13 +9,30 @@ import type {
   GoogleSheetImportResult,
   GoogleSheetPreview,
   Goal,
+  Me,
   Overview,
   PerformanceRow,
   ProjectCondition,
   ProjectTask,
   Report,
+  UserAccount,
+  UserRole,
   WeeklySummaryRow
 } from "./types";
+
+export interface CreateUserBody {
+  username: string;
+  display_name: string;
+  role: UserRole;
+  temp_password: string;
+  must_change_password?: boolean;
+}
+
+export interface UpdateUserBody {
+  display_name?: string;
+  role?: UserRole;
+  active?: boolean;
+}
 
 export interface CreateProjectBody {
   title: string;
@@ -40,6 +57,10 @@ export interface Session {
   access_token: string;
   token_type: "bearer";
   expires_at: string;
+  username: string;
+  display_name: string;
+  role: UserRole;
+  must_change_password: boolean;
 }
 
 export async function apiFetchEnvelope<T, M = Record<string, unknown>>(
@@ -137,5 +158,79 @@ export const api = {
   syncAttendance: (token: string) => apiFetch<Record<string, unknown>>("/api/v1/sheets/sync/attendance", token, { method: "POST" }),
   googleSheetPreview: (token: string) => apiFetch<GoogleSheetPreview>("/api/v1/google-sheet/preview", token),
   googleSheetImport: (token: string) =>
-    apiFetch<GoogleSheetImportResult>("/api/v1/google-sheet/import", token, { method: "POST" })
+    apiFetch<GoogleSheetImportResult>("/api/v1/google-sheet/import", token, { method: "POST" }),
+  me: (token: string) => apiFetch<Me>("/api/v1/auth/me", token),
+  changePassword: (token: string, current_password: string, new_password: string) =>
+    apiFetch<Me>("/api/v1/auth/change-password", token, {
+      method: "POST",
+      body: JSON.stringify({ current_password, new_password })
+    }),
+  users: {
+    list: (token: string) => apiFetch<UserAccount[]>("/api/v1/users", token),
+    create: (token: string, body: CreateUserBody) =>
+      apiFetch<UserAccount>("/api/v1/users", token, { method: "POST", body: JSON.stringify(body) }),
+    update: (token: string, id: number, body: UpdateUserBody) =>
+      apiFetch<UserAccount>(`/api/v1/users/${id}`, token, { method: "PATCH", body: JSON.stringify(body) }),
+    resetPassword: (token: string, id: number, temp_password: string) =>
+      apiFetch<UserAccount>(`/api/v1/users/${id}/reset-password`, token, {
+        method: "POST",
+        body: JSON.stringify({ temp_password })
+      }),
+    remove: (token: string, id: number) =>
+      apiFetch<{ id: number }>(`/api/v1/users/${id}`, token, { method: "DELETE" })
+  }
 };
+
+export type AssistantEvent =
+  | { kind: "run"; runId: string }
+  | { kind: "delta"; text: string }
+  | { kind: "final"; stopReason?: string }
+  | { kind: "error"; message: string; errorKind?: string }
+  | { kind: "aborted" };
+
+export async function streamAssistant(
+  token: string | null,
+  message: string,
+  onEvent: (event: AssistantEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const res = await fetch("/api/v1/assistant/chat", {
+    method: "POST",
+    signal,
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "text/event-stream",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ message }),
+  });
+  if (!res.ok || !res.body) throw new Error(`Assistant request failed (${res.status})`);
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const frames = buffer.split("\n\n");
+    buffer = frames.pop() ?? "";
+    for (const frame of frames) {
+      const dataLine = frame.split("\n").find((l) => l.startsWith("data: "));
+      if (!dataLine) continue;
+      try {
+        onEvent(JSON.parse(dataLine.slice(6)) as AssistantEvent);
+      } catch {
+        /* ignore malformed frame */
+      }
+    }
+  }
+}
+
+export async function abortAssistant(token: string | null, runId: string): Promise<void> {
+  await apiFetchEnvelope<{ aborted: boolean }>("/api/v1/assistant/abort", token, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ run_id: runId }),
+  });
+}
