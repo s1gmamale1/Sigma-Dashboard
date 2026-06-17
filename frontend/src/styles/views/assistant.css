@@ -52,7 +52,7 @@
   to { transform: none; opacity: 1; }
 }
 .viper-dock__head { display: flex; align-items: center; gap: 10px; padding: 12px 14px; }
-.viper-dock__head .viper-orb { position: static; width: 28px; height: 28px; box-shadow: none; }
+.viper-dock__head .viper-orb { position: relative; width: 28px; height: 28px; box-shadow: none; }
 .viper-dock__title { font-weight: 600; flex: 1; }
 .viper-dock__close { border: 0; background: transparent; font-size: 20px; cursor: pointer; color: var(--label-secondary); }
 .viper-dock__log { flex: 1; overflow-y: auto; padding: 8px 14px; display: flex; flex-direction: column; gap: 10px; }
