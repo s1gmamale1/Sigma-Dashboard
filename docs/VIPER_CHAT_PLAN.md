@@ -176,6 +176,13 @@ need it; if we ever want to prime context, prepend it to the `chat.send` `messag
 - **Tokens to reuse:** `.glass`, `--glass-fill`, `--shadow-float`, `--r-card`/`--r-pill`,
   `--grad-sigma`/`--s-violet`/`--s-azure`, `--spring-smooth`/`--spring-snappy`. Dock styles live in
   a new `styles/views/assistant.css` added to the `index.css` @import chain.
+- **Markdown rendering (shipped, PR #4).** Viper replies render through `react-markdown` +
+  `remark-gfm` (GFM tables, lists, code, headings, blockquotes, links) — previously they showed raw
+  text (`**bold**` literal, pipe-tables as plain rows). **User messages stay literal** (never
+  reparsed). XSS-safe by construction: no `rehype-raw` (raw HTML in markdown is escaped, not
+  executed), `react-markdown@9` sanitizes URLs by default, links get `rel="noopener noreferrer"`.
+  Tables are wrapped (`.viper-md__table-wrap`) for horizontal scroll + a sticky header so they don't
+  overflow the 380px dock. Styling reuses the design tokens above.
 
 ## 6. Safety model (corrected)
 
