@@ -191,6 +191,7 @@ export type AssistantEvent =
 export async function streamAssistant(
   token: string | null,
   message: string,
+  session: string | undefined,
   onEvent: (event: AssistantEvent) => void,
   signal?: AbortSignal,
 ): Promise<void> {
@@ -202,7 +203,7 @@ export async function streamAssistant(
       Accept: "text/event-stream",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify({ message }),
+    body: JSON.stringify({ message, ...(session ? { session } : {}) }),
   });
   if (!res.ok || !res.body) throw new Error(`Assistant request failed (${res.status})`);
 
@@ -227,10 +228,10 @@ export async function streamAssistant(
   }
 }
 
-export async function abortAssistant(token: string | null, runId: string): Promise<void> {
+export async function abortAssistant(token: string | null, runId: string, session?: string): Promise<void> {
   await apiFetchEnvelope<{ aborted: boolean }>("/api/v1/assistant/abort", token, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ run_id: runId }),
+    body: JSON.stringify({ run_id: runId, ...(session ? { session } : {}) }),
   });
 }

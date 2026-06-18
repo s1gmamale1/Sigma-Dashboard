@@ -1,4 +1,14 @@
 /* Ask Viper dock — living orb -> glass panel. Reuses global tokens. */
+
+/* Animated conic-gradient ring: register the custom angle property so CSS
+   can tween it smoothly across keyframes (Chromium 85+, Safari 16.4+, FF 128+).
+   Vite/tsc treat @property as plain CSS — no build-time issues. */
+@property --viper-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
 .viper-orb {
   position: fixed;
   right: 24px;
@@ -17,7 +27,8 @@
   position: absolute;
   inset: -3px;
   border-radius: inherit;
-  background: conic-gradient(from 0deg, var(--s-amber), var(--s-coral), var(--s-violet), var(--s-azure), var(--s-amber));
+  /* Cool palette only — no amber/orange */
+  background: conic-gradient(from 0deg, var(--s-violet), var(--s-azure), #98aeea, #ef638a, #ff646a, var(--s-violet));
   filter: blur(6px);
   opacity: 0.85;
   z-index: -1;
@@ -33,6 +44,31 @@
 }
 @keyframes viper-rim { to { transform: rotate(360deg); } }
 
+/* Edge ring: a 1.5px conic-gradient border that slowly rotates around the panel.
+   Sits at inset:0 so it is INSIDE the border-box and not clipped by overflow:hidden.
+   The mask technique punches out the fill so only the thin ring is visible. */
+.viper-dock::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;          /* above panel background, below content */
+  border-radius: inherit;
+  padding: 1.5px;      /* ring thickness */
+  background: conic-gradient(
+    from var(--viper-angle),
+    #ff646a, #ef638a, #bc82f3, #8186c7, #67a7ff, #98aeea, #ff646a
+  );
+  /* Mask: show only the padded ring, not the interior */
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  /* Soft bloom so it reads as light, not a hard line */
+  filter: drop-shadow(0 0 4px #bc82f344) drop-shadow(0 0 8px #67a7ff22);
+  pointer-events: none;
+  animation: viper-edge 9s linear infinite;
+}
+@keyframes viper-edge { to { --viper-angle: 360deg; } }
+
 .viper-dock {
   position: fixed;
   right: 24px;
@@ -45,14 +81,24 @@
   border-radius: var(--r-card);
   box-shadow: var(--shadow-float);
   overflow: hidden;
-  animation: viper-pop var(--dur-smooth, 400ms) var(--spring-smooth, ease);
+  /* Grow from the bottom-right corner (same spot as the launcher orb) */
+  transform-origin: bottom right;
+  animation: viper-pop 450ms cubic-bezier(0.05, 0.7, 0.1, 1) both;
 }
 @keyframes viper-pop {
-  from { transform: translateY(12px) scale(0.96); opacity: 0; }
-  to { transform: none; opacity: 1; }
+  from { transform: scale(0.12); opacity: 0; }
+  60%  { opacity: 1; }
+  to   { transform: scale(1); opacity: 1; }
+}
+@keyframes viper-pop-out {
+  from { transform: scale(1); opacity: 1; }
+  to   { transform: scale(0.12); opacity: 0; }
+}
+/* Exit: shrinks back into the bottom-right corner where the orb lives */
+.viper-dock[data-closing="true"] {
+  animation: viper-pop-out 400ms cubic-bezier(0.05, 0.7, 0.1, 1) both;
 }
 .viper-dock__head { display: flex; align-items: center; gap: 10px; padding: 12px 14px; }
-.viper-dock__head .viper-orb { position: static; width: 28px; height: 28px; box-shadow: none; }
 .viper-dock__title { font-weight: 600; flex: 1; }
 .viper-dock__close { border: 0; background: transparent; font-size: 20px; cursor: pointer; color: var(--label-secondary); }
 .viper-dock__log { flex: 1; overflow-y: auto; padding: 8px 14px; display: flex; flex-direction: column; gap: 10px; }
@@ -64,11 +110,138 @@
 .viper-chip { border: 1px solid var(--glass-highlight); background: transparent; border-radius: var(--r-pill); padding: 4px 10px; font-size: 12px; cursor: pointer; }
 .viper-chip:disabled { opacity: 0.5; cursor: default; }
 .viper-dock__input { display: flex; gap: 8px; padding: 12px 14px; }
-.viper-dock__input input { flex: 1; border-radius: var(--r-pill); border: 1px solid var(--glass-highlight); padding: 8px 12px; background: var(--glass-fill); }
+.viper-dock__input input { flex: 1; border-radius: var(--r-pill); border: 1px solid var(--glass-highlight); padding: 8px 12px; background: var(--glass-fill); transition: box-shadow 0.3s cubic-bezier(0.05, 0.7, 0.1, 1); }
+/* Subtle glow on input while the user is actively typing */
+.viper-dock__input input[data-typing="true"] {
+  box-shadow: 0 0 0 1px #bc82f322, 0 0 10px 0px #67a7ff1a;
+  animation: viper-input-pulse 2.8s cubic-bezier(0.05, 0.7, 0.1, 1) infinite;
+}
+@keyframes viper-input-pulse {
+  0%   { box-shadow: 0 0 0 1px #bc82f322, 0 0 10px 0px #67a7ff1a; }
+  35%  { box-shadow: 0 0 0 1px #bc82f344, 0 0 16px 0px #67a7ff33; }
+  100% { box-shadow: 0 0 0 1px #bc82f322, 0 0 10px 0px #67a7ff1a; }
+}
 .viper-dock__input button { border: 0; border-radius: var(--r-pill); padding: 8px 14px; cursor: pointer; background: var(--grad-sigma); color: #fff; }
+
+/* Streaming bubble indicator — cool palette, staggered asymmetric pulse */
+.viper-dock__bubbles { display: flex; gap: 5px; align-items: center; padding: 2px 0; }
+.viper-bubble {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #8186c7;
+  opacity: 0.2;
+  animation: viper-bubble-rise 1.6s cubic-bezier(0.05, 0.7, 0.1, 1) infinite;
+}
+.viper-bubble:nth-child(1) { animation-delay: 0s; background: #ef638a; }
+.viper-bubble:nth-child(2) { animation-delay: 0.28s; background: #bc82f3; }
+.viper-bubble:nth-child(3) { animation-delay: 0.56s; background: #67a7ff; }
+@keyframes viper-bubble-rise {
+  /* Asymmetric: sharp rise in first 30%, soft decay over 70% */
+  0%   { transform: translateY(0);    opacity: 0.2; }
+  30%  { transform: translateY(-6px); opacity: 0.8; }
+  100% { transform: translateY(0);    opacity: 0.2; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   .viper-orb__rim { animation: none; }
+  /* Freeze edge ring rotation — keep a static faint ring for visual continuity */
+  .viper-dock::before { animation: none; filter: drop-shadow(0 0 3px #bc82f322); opacity: 0.5; }
+  /* Instant open and close — no scale animations */
   .viper-dock { animation: none; }
+  .viper-dock[data-closing="true"] { animation: none; }
+  .viper-bubble { animation: none; opacity: 0.5; }
+  .viper-dock__input input[data-typing="true"] { animation: none; }
 }
 .viper-orb[data-reduced="true"] .viper-orb__rim { animation: none; }
+/* Honor reduced-motion via data attribute on the dock */
+.viper-dock[data-reduced="true"]::before { animation: none; filter: drop-shadow(0 0 3px #bc82f322); opacity: 0.5; }
+.viper-dock[data-reduced="true"] { animation: none; }
+.viper-dock[data-reduced="true"][data-closing="true"] { animation: none; }
+.viper-dock[data-reduced="true"] .viper-bubble { animation: none; opacity: 0.5; }
+.viper-dock[data-reduced="true"] .viper-dock__input input[data-typing="true"] { animation: none; }
+
+/* Session controls — compact row between title and close button */
+.viper-sessions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.viper-sessions__select {
+  border: 1px solid var(--glass-highlight);
+  background: var(--glass-fill);
+  border-radius: var(--r-pill);
+  padding: 3px 8px;
+  font-size: 12px;
+  color: inherit;
+  cursor: pointer;
+  max-width: 110px;
+}
+.viper-sessions__rename {
+  border: 1px solid #bc82f355;
+  background: var(--glass-fill);
+  border-radius: var(--r-pill);
+  padding: 3px 8px;
+  font-size: 12px;
+  color: inherit;
+  width: 90px;
+  outline: none;
+  box-shadow: 0 0 0 1px #bc82f322;
+}
+.viper-sessions__rename-btn,
+.viper-sessions__new {
+  border: 0;
+  background: transparent;
+  font-size: 14px;
+  cursor: pointer;
+  color: var(--label-secondary);
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: var(--r-pill);
+  transition: color 0.15s;
+}
+.viper-sessions__rename-btn:hover,
+.viper-sessions__new:hover { color: var(--label-primary); }
+.viper-sessions__rename-btn:disabled,
+.viper-sessions__new:disabled { opacity: 0.4; cursor: default; }
+
+/* Slash-command palette — floats above the input row */
+.viper-cmd-palette {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  border-top: 1px solid var(--glass-highlight);
+  background: var(--glass-fill);
+  backdrop-filter: blur(12px);
+  max-height: 180px;
+  overflow-y: auto;
+}
+.viper-cmd-palette__item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.viper-cmd-palette__item:hover { background: var(--glass-highlight); }
+.viper-cmd-palette__cmd {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--label-primary);
+  white-space: nowrap;
+}
+.viper-cmd-palette__desc {
+  font-size: 11px;
+  color: var(--label-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .viper-cmd-palette__item { transition: none; }
+}
+.viper-dock[data-reduced="true"] .viper-cmd-palette__item { transition: none; }

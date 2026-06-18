@@ -129,7 +129,7 @@ function PerformanceDetail({
         <h3 className="perf-col__title">What</h3>
         <div className="perf-col__rating">
           <strong className="num">{ratingLabel(row.average_rating)}</strong>
-          <span className="muted"> / 4 avg</span>
+          <span className="muted"> avg</span>
           <Sparkline data={row.rating_trend} ariaLabel={`Rating trend for ${row.person.display_name}`} />
         </div>
         <p className="perf-accomplishment">{row.top_accomplishment ?? "No standout accomplishment logged."}</p>
