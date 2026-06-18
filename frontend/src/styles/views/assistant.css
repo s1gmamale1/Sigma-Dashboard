@@ -103,9 +103,109 @@
 .viper-dock__close { border: 0; background: transparent; font-size: 20px; cursor: pointer; color: var(--label-secondary); }
 .viper-dock__log { flex: 1; overflow-y: auto; padding: 8px 14px; display: flex; flex-direction: column; gap: 10px; }
 .viper-dock__hint { color: var(--label-secondary); }
-.viper-msg { display: flex; flex-direction: column; gap: 2px; white-space: pre-wrap; }
+.viper-msg { display: flex; flex-direction: column; gap: 4px; }
 .viper-msg__who { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--label-secondary); }
+.viper-msg__text { white-space: pre-wrap; line-height: 1.5; }
 .viper-msg--you { align-items: flex-end; }
+/* The user's own bubble: keep it visually distinct from Viper's reply. */
+.viper-msg--you .viper-msg__text {
+  background: var(--glass-fill);
+  border: 1px solid var(--glass-highlight);
+  border-radius: 14px 14px 4px 14px;
+  padding: 8px 12px;
+  max-width: 88%;
+  text-align: left;
+}
+
+/* ── Markdown rendering for Viper replies ─────────────────────────────── */
+.viper-msg__md { line-height: 1.55; font-size: 14px; }
+/* Collapse the default top/bottom margins so the reply hugs the label,
+   but keep rhythm between stacked blocks. */
+.viper-msg__md > :first-child { margin-top: 0; }
+.viper-msg__md > :last-child { margin-bottom: 0; }
+.viper-msg__md p { margin: 0 0 8px; }
+.viper-msg__md strong { font-weight: 650; color: var(--label-primary); }
+.viper-msg__md em { font-style: italic; }
+.viper-msg__md del { opacity: 0.6; }
+
+/* Headings — scaled down for the compact dock. */
+.viper-msg__md h1,
+.viper-msg__md h2,
+.viper-msg__md h3,
+.viper-msg__md h4 { margin: 14px 0 6px; line-height: 1.25; font-weight: 650; color: var(--label-primary); }
+.viper-msg__md h1 { font-size: 18px; }
+.viper-msg__md h2 { font-size: 16px; }
+.viper-msg__md h3 { font-size: 14.5px; }
+.viper-msg__md h4 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--label-secondary); }
+
+/* Lists */
+.viper-msg__md ul,
+.viper-msg__md ol { margin: 0 0 8px; padding-left: 20px; }
+.viper-msg__md li { margin: 2px 0; }
+.viper-msg__md li::marker { color: var(--s-violet); }
+/* GFM task-list checkboxes */
+.viper-msg__md input[type="checkbox"] { margin-right: 6px; accent-color: var(--s-violet); }
+.viper-msg__md li.task-list-item { list-style: none; margin-left: -16px; }
+
+/* Inline + block code */
+.viper-msg__md code {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 0.88em;
+  background: var(--glass-highlight);
+  border-radius: var(--r-control);
+  padding: 1px 5px;
+}
+.viper-msg__md pre {
+  margin: 0 0 8px;
+  padding: 10px 12px;
+  border-radius: var(--r-tile);
+  background: rgba(10, 10, 20, 0.45);
+  border: 1px solid var(--glass-highlight);
+  overflow-x: auto;
+}
+.viper-msg__md pre code { background: none; padding: 0; font-size: 12.5px; line-height: 1.5; }
+
+/* Blockquote */
+.viper-msg__md blockquote {
+  margin: 0 0 8px;
+  padding: 2px 0 2px 12px;
+  border-left: 3px solid var(--s-violet);
+  color: var(--label-secondary);
+}
+
+/* Links */
+.viper-msg__md a { color: var(--s-azure); text-decoration: none; border-bottom: 1px solid transparent; transition: border-color 0.15s; }
+.viper-msg__md a:hover { border-bottom-color: currentColor; }
+
+/* Horizontal rule */
+.viper-msg__md hr { border: 0; border-top: 1px solid var(--glass-highlight); margin: 12px 0; }
+
+/* Tables — wrapped so wide tables scroll instead of overflowing the dock. */
+.viper-md__table-wrap {
+  margin: 0 0 8px;
+  overflow-x: auto;
+  border: 1px solid var(--glass-highlight);
+  border-radius: var(--r-tile);
+  /* gentle edge fade hint that content scrolls */
+  -webkit-overflow-scrolling: touch;
+}
+.viper-msg__md table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+.viper-msg__md th,
+.viper-msg__md td {
+  padding: 6px 10px;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--glass-highlight);
+}
+.viper-msg__md thead th {
+  font-weight: 650;
+  color: var(--label-primary);
+  background: var(--glass-highlight);
+  position: sticky;
+  top: 0;
+}
+.viper-msg__md tbody tr:last-child td { border-bottom: 0; }
+.viper-msg__md tbody tr:nth-child(even) td { background: rgba(255, 255, 255, 0.025); }
 .viper-dock__chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 14px; }
 .viper-chip { border: 1px solid var(--glass-highlight); background: transparent; border-radius: var(--r-pill); padding: 4px 10px; font-size: 12px; cursor: pointer; }
 .viper-chip:disabled { opacity: 0.5; cursor: default; }
