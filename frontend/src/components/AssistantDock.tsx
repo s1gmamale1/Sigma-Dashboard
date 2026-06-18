@@ -1,9 +1,37 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { streamAssistant, abortAssistant, type AssistantEvent } from "../lib/api";
 import { ViperOrb } from "./ViperOrb";
 import { useReducedMotion } from "../hooks/useReducedMotion";
 
 type Msg = { role: "you" | "viper"; text: string };
+
+// Markdown rendering for Viper replies. GFM gives tables, strikethrough,
+// task-lists and autolinks. Tables are wrapped so they scroll horizontally
+// inside the narrow dock instead of overflowing it, and links open safely.
+const MD_COMPONENTS = {
+  table: (props: { children?: ReactNode }) => (
+    <div className="viper-md__table-wrap">
+      <table>{props.children}</table>
+    </div>
+  ),
+  a: (props: { href?: string; children?: ReactNode }) => (
+    <a href={props.href} target="_blank" rel="noopener noreferrer">
+      {props.children}
+    </a>
+  ),
+};
+
+function ViperMarkdown({ text }: { text: string }) {
+  return (
+    <div className="viper-msg__md">
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
+        {text}
+      </ReactMarkdown>
+    </div>
+  );
+}
 
 // Curated list of safe slash-commands to show in the palette.
 // Destructive or session-resetting commands are deliberately excluded.
@@ -287,10 +315,18 @@ export function AssistantDock({ token }: { token: string | null }) {
           <p className="viper-dock__hint">Ask about goals, lateness, or a person's month.</p>
         ) : (
           messages.map((m, i) => (
-            <p key={i} className={`viper-msg viper-msg--${m.role}`}>
+            <div key={i} className={`viper-msg viper-msg--${m.role}`}>
               <span className="viper-msg__who">{m.role}</span>
-              {m.text || (m.role === "viper" && streaming ? "…" : "")}
-            </p>
+              {m.role === "viper" ? (
+                m.text ? (
+                  <ViperMarkdown text={m.text} />
+                ) : (
+                  streaming ? <span className="viper-msg__text">…</span> : null
+                )
+              ) : (
+                <span className="viper-msg__text">{m.text}</span>
+              )}
+            </div>
           ))
         )}
         {streaming && (
