@@ -45,7 +45,9 @@ class IdResult(StrictModel):
 class SheetSyncResult(StrictModel):
     """Outcome of a Google Sheet attendance sync run."""
 
-    id: int
+    # None only in the degraded case where the failed run itself could not be persisted
+    # (e.g. severe DB write contention) — the endpoint still returns 200 with status "failed".
+    id: int | None = None
     status: str
     started_at: datetime | None = None
     finished_at: datetime | None = None

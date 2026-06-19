@@ -24,7 +24,10 @@ logger = logging.getLogger("uvicorn.error")
 
 def _run_attendance_import_once() -> str:
     settings = get_settings()
-    with Session(engine) as db:
+    # expire_on_commit=False: import_attendance_sheet commits internally, and we read run.status
+    # afterward — without this, the read would issue a refresh SELECT that could itself error
+    # under DB contention and get misclassified as a failed sync.
+    with Session(engine, expire_on_commit=False) as db:
         run = import_attendance_sheet(settings, db)  # commits internally under the import lock
         logger.info("attendance sheet sync: %s — %s", run.status, run.error_message)
         return run.status

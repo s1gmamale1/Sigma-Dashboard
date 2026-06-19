@@ -34,8 +34,6 @@ from .google_sheets import (
     _slug,
     resolve_spreadsheet_id,
 )
-
-logger = logging.getLogger("uvicorn.error")
 from .models import AttendanceRecord, SheetSyncRun
 from .services import (
     calculate_attendance_status,
@@ -43,6 +41,8 @@ from .services import (
     get_or_create_person,
     shift_start_datetime,
 )
+
+logger = logging.getLogger("uvicorn.error")
 
 PERSON_BLOCK_START = 1  # column B (0-indexed): first person's Arrival column
 PERSON_BLOCK_WIDTH = 3  # Arrival, Out, Status

@@ -181,3 +181,60 @@ def test_daily_reports_meta_latest_falls_back_on_empty_date() -> None:
     assert body["error"] is None
     assert body["data"] == []  # the queried (later) date has no reports
     assert body["meta"]["latest_report_date"] == "2026-06-05"  # fallback to most recent prior
+
+
+def _stub_sync_run(status: str, message: str, run_id: int | None):
+    from backend.app.db import utc_now
+    from backend.app.models import SheetSyncRun
+
+    run = SheetSyncRun(
+        sync_type="attendance_import",
+        status=status,
+        started_at=utc_now(),
+        finished_at=utc_now(),
+        error_message=message,
+    )
+    if run_id is not None:
+        run.id = run_id
+    return run
+
+
+def test_import_sheet_endpoint_returns_persisted_success(monkeypatch) -> None:
+    from backend.app import routes
+    from backend.app.auth import require_edit_or_viper
+
+    client = client_with_db()
+    app.dependency_overrides[require_edit_or_viper] = lambda: "viper"
+    monkeypatch.setattr(
+        routes, "import_attendance_sheet", lambda settings, db: _stub_sync_run("success", "imported 3 of 3 rows", 42)
+    )
+
+    resp = client.post("/api/v1/attendance/import-sheet")
+    body = resp.json()
+
+    assert resp.status_code == 200
+    assert body["error"] is None
+    assert body["data"]["id"] == 42
+    assert body["data"]["status"] == "success"
+
+
+def test_import_sheet_endpoint_tolerates_unpersisted_failed_run(monkeypatch) -> None:
+    """The doubly-degraded path (import couldn't even persist the failed run → id=None) must
+    still return 200 with a failed result, never a 500 — the 'endpoint can't 500' guarantee."""
+    from backend.app import routes
+    from backend.app.auth import require_edit_or_viper
+
+    client = client_with_db()
+    app.dependency_overrides[require_edit_or_viper] = lambda: "viper"
+    monkeypatch.setattr(
+        routes, "import_attendance_sheet", lambda settings, db: _stub_sync_run("failed", "database is locked", None)
+    )
+
+    resp = client.post("/api/v1/attendance/import-sheet")
+    body = resp.json()
+
+    assert resp.status_code == 200          # NOT 500, even though the run has no id
+    assert body["error"] is None
+    assert body["data"]["id"] is None
+    assert body["data"]["status"] == "failed"
+    assert body["data"]["error_message"] == "database is locked"

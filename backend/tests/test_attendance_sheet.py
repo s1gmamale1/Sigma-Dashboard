@@ -392,7 +392,9 @@ def test_import_serializes_real_upserts_on_shared_db(monkeypatch, tmp_path) -> N
     from backend.app import attendance_sheet as A
     from backend.app.models import AttendanceRecord, Person
 
-    engine = create_engine(f"sqlite:///{tmp_path / 'shared.db'}")
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'shared.db'}", connect_args={"check_same_thread": False}
+    )
     Base.metadata.create_all(engine)
     SessionFactory = sessionmaker(bind=engine)
     seed = SessionFactory()
