@@ -94,7 +94,7 @@ async def lifespan(_: FastAPI):
         task = asyncio.create_task(_attendance_sync_loop())
         logger.info(
             "attendance sheet auto-sync scheduled every %d min",
-            settings.sheet_sync_interval_minutes,
+            max(1, settings.sheet_sync_interval_minutes),  # report the floored cadence the loop actually uses
         )
     try:
         yield

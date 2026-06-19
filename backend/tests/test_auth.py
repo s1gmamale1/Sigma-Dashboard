@@ -123,10 +123,18 @@ def test_require_edit_or_viper_rejects_missing_or_wrong_credentials() -> None:
     from backend.app.auth import require_edit_or_viper
 
     settings = make_settings()
-    with pytest.raises(HTTPException):  # no credentials at all
+    with pytest.raises(HTTPException) as missing:  # no credentials at all
         require_edit_or_viper(None, None, settings, None)
+    assert missing.value.status_code == 401
     with pytest.raises(HTTPException):  # a bearer that is neither the Viper token nor a valid JWT
         require_edit_or_viper(None, _bearer("not-a-real-token"), settings, None)
+
+    # A wrong X-Viper-Token with no JWT reports the Viper failure specifically,
+    # not a misleading "Missing bearer token".
+    with pytest.raises(HTTPException) as wrong_viper:
+        require_edit_or_viper("wrong-viper-token", None, settings, None)
+    assert wrong_viper.value.status_code == 401
+    assert "Viper" in str(wrong_viper.value.detail)
 
 
 def test_require_edit_or_viper_accepts_edit_user_and_rejects_viewer() -> None:

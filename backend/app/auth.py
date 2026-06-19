@@ -144,13 +144,15 @@ def require_edit_or_viper(
     writes the HR sheet (via ``X-Viper-Token`` or a bearer of the same secret), while
     still permitting admins/managers to trigger it from the dashboard with their JWT.
     """
-    if _is_viper_token(x_viper_token, settings) or _is_viper_token(
-        credentials.credentials if credentials else None, settings
-    ):
+    # Same header-or-bearer resolution as require_viper, so the ingest agent is
+    # recognized identically across /viper/* and this endpoint.
+    token = x_viper_token or (credentials.credentials if credentials else None)
+    if _is_viper_token(token, settings):
         return "viper"
-    # Not a Viper token — fall back to an edit-capable JWT user (raises 401/403 as needed).
+    if x_viper_token is not None and credentials is None:
+        # A Viper token was offered but didn't match — report that, not "Missing bearer token".
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Viper token")
+    # Otherwise fall back to an edit-capable JWT user (require_edit raises 401/403 as needed),
+    # reusing the one edit gate so this endpoint can never drift from the others.
     user = get_current_user(credentials=credentials, settings=settings, db=db)
-    _gate_password(user)
-    if not can_write(user.role):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This account is read-only")
-    return user.username
+    return require_edit(user).username

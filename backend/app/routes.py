@@ -895,7 +895,7 @@ def google_sheet_import(
     response_model=Envelope[SheetSyncResult],
     tags=["Attendance"],
     summary="Import attendance from the HR sheet now",
-    responses={**UNAUTHORIZED},
+    responses={**UNAUTHORIZED, 403: _err("Account is read-only (edit-capable JWT or `X-Viper-Token` required).")},
 )
 def import_attendance_sheet_now(
     db: Session = Depends(get_db),
