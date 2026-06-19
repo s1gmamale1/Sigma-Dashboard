@@ -100,3 +100,36 @@ _(raw ideas land here; promote to ROADMAP.md once scoped into a phase)_
   neutral grey. Effort: S.
 - 🧹 **[low] P2 — unbounded text fields** (summary/what/how/why/note) — no max length. Effort: S.
 - 🧹 **[low] P2 — client docstring omits `evaluation`** (`dashboard_client.py:5-6`). Effort: S.
+
+---
+
+## 🔬 Deep review findings (2026-06-19)
+
+> Source: two-round xhigh workflow code review of PR #5 (attendance frequent-import,
+> merged as `a4e38ff`). These three were consciously **deferred** as out-of-scope for that
+> PR; none is a confirmed correctness/security bug — all are hardening/efficiency follow-ups.
+
+### Ops / reliability
+
+- ⚙️ **[medium] concurrent-import race — auto-sync loop vs on-demand endpoint** — the every-10-min
+  sync loop (`backend/app/main.py:35-48`) and the now-Viper-triggerable on-demand import
+  (`backend/app/routes.py:893` → `import_attendance_sheet`) can run two `apply_attendance_rows`
+  passes against the same rows at once. Self-healing today (idempotent upserts, failure-safe
+  `try/except` recording a failed `SheetSyncRun`, SQLite serializes writes), so worst case is a
+  transient "database is locked" / redundant run, not corruption. Fix: a lightweight in-process
+  guard (module-level `threading.Lock`/`asyncio.Lock`) so the loop and the endpoint never overlap.
+  Effort: S.
+- ⚙️ **[low] immediate-import on every startup can storm the Sheets API** — the loop imports once
+  before its first sleep (`backend/app/main.py:43`); under launchd `KeepAlive` a crash-loop fires a
+  full fetch+parse on each restart. Bounded by `ThrottleInterval=10`, and the immediate-on-boot
+  behavior is intended (fresh History after a restart). Fix: a short startup delay or a
+  consecutive-failure backoff before re-importing. Effort: S.
+
+### Optimizations
+
+- 🧹 **[low] Google service/credentials rebuilt every loop iteration (~144×/day)** — `import_attendance_sheet`
+  → `_service()` → `_credentials()` re-reads the service-account JSON off disk and parses the RSA key,
+  then `build()` constructs a fresh client on every run (`backend/app/google_sheets.py:47`). Was 1×/day,
+  now ~every 10 min. Fix: cache `_service`/`_credentials` (e.g. `@functools.lru_cache` keyed on the
+  credentials path, or build once and reuse across iterations) so the loop pays only for the network
+  fetch. Effort: S.
