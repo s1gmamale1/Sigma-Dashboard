@@ -247,11 +247,15 @@ def test_sync_loop_imports_immediately_then_sleeps_the_interval(monkeypatch) -> 
 
 
 def test_sync_loop_survives_single_failure_at_base_interval(monkeypatch) -> None:
+    calls = {"n": 0}
+
     def import_boom() -> str:
+        calls["n"] += 1
         raise RuntimeError("sheet unavailable")
 
     sleeps = _drive_sync_loop(monkeypatch, interval_minutes=5, import_fn=import_boom)
 
+    assert calls["n"] == 1          # the import actually ran on the failure path
     # A single transient failure must NOT back off — the loop survives and retries at the
     # base interval (the regression the reviewer flagged: one blip shouldn't stretch staleness).
     assert sleeps == [300.0]
@@ -303,25 +307,34 @@ def _sheets_settings():
     )
 
 
-def test_import_holds_lock_during_db_apply(monkeypatch) -> None:
-    """The DB apply runs while _import_lock is held; the lock is released afterward."""
+def test_import_fetches_outside_lock_applies_inside_and_persists_run(monkeypatch) -> None:
+    """The fetch runs OUTSIDE _import_lock (no network I/O under the lock), the apply runs
+    INSIDE it, and the SheetSyncRun is actually committed (not just held in memory)."""
     from backend.app import attendance_sheet as A
+    from backend.app.models import SheetSyncRun
 
-    monkeypatch.setattr(A, "_fetch_attendance_rows", lambda settings: [])  # skip the network
-    held = {"locked": None}
+    observed = {"fetch_locked": None, "apply_locked": None}
     real_apply = A.apply_attendance_rows
 
+    def probe_fetch(settings):
+        observed["fetch_locked"] = A._import_lock.locked()
+        return []
+
     def probe_apply(db, rows, tz):
-        held["locked"] = A._import_lock.locked()
+        observed["apply_locked"] = A._import_lock.locked()
         return real_apply(db, rows, tz)
 
+    monkeypatch.setattr(A, "_fetch_attendance_rows", probe_fetch)
     monkeypatch.setattr(A, "apply_attendance_rows", probe_apply)
     db = make_db()  # keep the session alive so run's attributes resolve after the internal commit
     run = A.import_attendance_sheet(_sheets_settings(), db)
 
-    assert held["locked"] is True          # apply ran under the lock
+    assert observed["fetch_locked"] is False   # fetch ran outside the lock (no starvation risk)
+    assert observed["apply_locked"] is True     # apply ran inside the lock
     assert run.status == "success"
-    assert not A._import_lock.locked()     # released after the call returns
+    assert run.id is not None                   # the run was actually committed...
+    assert db.scalar(select(SheetSyncRun).where(SheetSyncRun.id == run.id)) is not None  # ...and persisted
+    assert not A._import_lock.locked()          # released after the call returns
 
 
 def test_import_serializes_concurrent_applies(monkeypatch) -> None:
@@ -349,10 +362,13 @@ def test_import_serializes_concurrent_applies(monkeypatch) -> None:
     errors: list[Exception] = []
 
     def worker():
+        db = make_db()
         try:
-            A.import_attendance_sheet(settings, make_db())
+            A.import_attendance_sheet(settings, db)
         except Exception as exc:  # noqa: BLE001
             errors.append(exc)
+        finally:
+            db.close()
 
     threads = [threading.Thread(target=worker) for _ in range(4)]
     for t in threads:
@@ -360,5 +376,64 @@ def test_import_serializes_concurrent_applies(monkeypatch) -> None:
     for t in threads:
         t.join(5)
 
+    assert all(not t.is_alive() for t in threads)  # no deadlock/hang (a lock bug would hang here)
     assert errors == []
     assert overlap["max"] == 1             # never two applies in flight → the lock serialized them
+
+
+def test_import_serializes_real_upserts_on_shared_db(monkeypatch, tmp_path) -> None:
+    """End-to-end: two concurrent imports of the SAME (person, shift_date) against ONE shared
+    DB don't collide on the unique constraint — the lock serializes the real upsert + commit."""
+    import threading
+
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    from backend.app import attendance_sheet as A
+    from backend.app.models import AttendanceRecord, Person
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'shared.db'}")
+    Base.metadata.create_all(engine)
+    SessionFactory = sessionmaker(bind=engine)
+    seed = SessionFactory()
+    seed_db(seed)
+    seed.add(Person(slug="abdul", display_name="Abdul", active=True, sort_order=1))
+    seed.commit()
+    seed.close()
+
+    # Both imports parse to the SAME (abdul, 2026-06-01) row, so they contend on uq_attendance_person_shift.
+    grid = [
+        ["Name"],
+        ["", "Abdul", "", ""],
+        ["Date", "Arrival time", "Out time", "Status"],
+        ["2026-06-01", "18:00", "", "On time"],
+    ]
+    monkeypatch.setattr(A, "_fetch_attendance_rows", lambda settings: parse_attendance_grid(grid))
+    settings = _sheets_settings()
+    errors: list[Exception] = []
+
+    def worker():
+        db = SessionFactory()
+        try:
+            run = A.import_attendance_sheet(settings, db)
+            if run.status != "success":
+                errors.append(RuntimeError(run.error_message))
+        except Exception as exc:  # noqa: BLE001
+            errors.append(exc)
+        finally:
+            db.close()
+
+    threads = [threading.Thread(target=worker) for _ in range(4)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(5)
+
+    assert all(not t.is_alive() for t in threads)
+    assert errors == []                    # no IntegrityError / "database is locked" from the race
+    check = SessionFactory()
+    try:
+        rows = check.scalars(select(AttendanceRecord).where(AttendanceRecord.shift_date == date(2026, 6, 1))).all()
+    finally:
+        check.close()
+    assert len(rows) == 1                  # the unique row was upserted once, never duplicated
