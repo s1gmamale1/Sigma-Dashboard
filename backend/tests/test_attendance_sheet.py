@@ -199,8 +199,8 @@ class _StopLoop(Exception):
     """Sentinel raised from the patched sleep to break the otherwise-infinite loop."""
 
 
-def _drive_sync_loop(monkeypatch, interval_minutes: int, import_fn):
-    """Run one iteration of main._attendance_sync_loop and capture the import/sleep calls."""
+def _drive_sync_loop(monkeypatch, interval_minutes: int, import_fn, stop_after: int = 1):
+    """Drive main._attendance_sync_loop for `stop_after` iterations, capturing each sleep."""
     import asyncio
 
     import pytest
@@ -222,7 +222,8 @@ def _drive_sync_loop(monkeypatch, interval_minutes: int, import_fn):
 
     async def fake_sleep(seconds):
         sleeps.append(seconds)
-        raise _StopLoop
+        if len(sleeps) >= stop_after:
+            raise _StopLoop
 
     monkeypatch.setattr(main.asyncio, "to_thread", fake_to_thread)
     monkeypatch.setattr(main.asyncio, "sleep", fake_sleep)
@@ -245,30 +246,37 @@ def test_sync_loop_imports_immediately_then_sleeps_the_interval(monkeypatch) -> 
     assert sleeps == [600.0]        # success → no backoff, sleeps the 10-minute interval
 
 
-def test_sync_loop_survives_and_backs_off_on_raised_failure(monkeypatch) -> None:
-    calls = {"n": 0}
-
+def test_sync_loop_survives_single_failure_at_base_interval(monkeypatch) -> None:
     def import_boom() -> str:
-        calls["n"] += 1
         raise RuntimeError("sheet unavailable")
 
     sleeps = _drive_sync_loop(monkeypatch, interval_minutes=5, import_fn=import_boom)
 
-    assert calls["n"] == 1          # the failing import ran (loop survived the exception)
-    assert sleeps == [600.0]        # 1 failure → 2x backoff over the 5-minute interval
+    # A single transient failure must NOT back off — the loop survives and retries at the
+    # base interval (the regression the reviewer flagged: one blip shouldn't stretch staleness).
+    assert sleeps == [300.0]
 
 
-def test_sync_loop_backs_off_on_failed_status(monkeypatch) -> None:
-    calls = {"n": 0}
+def test_sync_loop_escalates_then_resets_backoff(monkeypatch) -> None:
+    statuses = iter(["failed", "failed", "failed", "success", "failed"])
 
-    def import_failed() -> str:
-        calls["n"] += 1
-        return "failed"             # import_attendance_sheet records failure, doesn't raise
+    def import_seq() -> str:
+        return next(statuses)
 
-    sleeps = _drive_sync_loop(monkeypatch, interval_minutes=10, import_fn=import_failed)
+    sleeps = _drive_sync_loop(monkeypatch, interval_minutes=10, import_fn=import_seq, stop_after=5)
 
-    assert calls["n"] == 1
-    assert sleeps == [1200.0]       # a "failed" status also triggers the 2x backoff
+    # consecutive failures 1,2,3 → 1x,2x,4x; success resets → 1x; next failure → 1x again
+    assert sleeps == [600.0, 1200.0, 2400.0, 600.0, 600.0]
+
+
+def test_sync_loop_backoff_caps_at_8x(monkeypatch) -> None:
+    def always_failed() -> str:
+        return "failed"
+
+    sleeps = _drive_sync_loop(monkeypatch, interval_minutes=10, import_fn=always_failed, stop_after=6)
+
+    # 1,2,4,8 then capped at 8x — a long outage never stretches beyond 8x the interval
+    assert sleeps == [600.0, 1200.0, 2400.0, 4800.0, 4800.0, 4800.0]
 
 
 def test_sync_interval_default_is_ten_minutes() -> None:
@@ -282,56 +290,75 @@ def test_sync_interval_default_is_ten_minutes() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# Import is serialized (lock) and the Sheets credentials are cached
+# Import is serialized: the DB apply runs under _import_lock, and concurrent
+# imports never overlap (the fetch is outside the lock).
 # --------------------------------------------------------------------------- #
 
-def test_import_attendance_sheet_runs_under_the_import_lock(monkeypatch) -> None:
-    """The import body executes while _import_lock is held, so the interval loop and the
-    on-demand endpoint can never run a sheet import concurrently."""
-    from backend.app import attendance_sheet as A
+def _sheets_settings():
     from backend.app.config import Settings
 
-    held = {"locked": None}
-
-    def probe_service(settings, api, version):
-        held["locked"] = A._import_lock.locked()
-        raise A.GoogleSheetError("stop after lock check")
-
-    monkeypatch.setattr(A, "_service", probe_service)
-    settings = Settings(
+    return Settings(
         jwt_secret="unit-test-jwt-secret-0123456789",
         viper_token="unit-test-viper-token-0123456789",
-        google_credentials_path="/tmp/does-not-matter.json",
-        google_sheet_id="sheet-123",  # set so resolve_spreadsheet_id returns without a _service call
     )
-    run = A.import_attendance_sheet(settings, make_db())
-
-    assert held["locked"] is True          # the body ran while the lock was held
-    assert run.status == "failed"          # probe short-circuited; failure recorded, never raised
-    assert not A._import_lock.locked()     # lock released after the call returns
 
 
-def test_credentials_are_cached_per_path(monkeypatch) -> None:
-    """The service-account file is read+parsed once per path, not on every import."""
-    from backend.app import google_sheets as G
-    from backend.app.config import Settings
+def test_import_holds_lock_during_db_apply(monkeypatch) -> None:
+    """The DB apply runs while _import_lock is held; the lock is released afterward."""
+    from backend.app import attendance_sheet as A
 
-    calls = {"n": 0}
+    monkeypatch.setattr(A, "_fetch_attendance_rows", lambda settings: [])  # skip the network
+    held = {"locked": None}
+    real_apply = A.apply_attendance_rows
 
-    def fake_from_file(path, scopes=None):
-        calls["n"] += 1
-        return object()
+    def probe_apply(db, rows, tz):
+        held["locked"] = A._import_lock.locked()
+        return real_apply(db, rows, tz)
 
-    monkeypatch.setattr(G.Credentials, "from_service_account_file", fake_from_file)
-    G._load_credentials.cache_clear()
-    try:
-        settings = Settings(
-            jwt_secret="unit-test-jwt-secret-0123456789",
-            viper_token="unit-test-viper-token-0123456789",
-            google_credentials_path="/tmp/sa.json",
-        )
-        G._credentials(settings)
-        G._credentials(settings)
-        assert calls["n"] == 1             # parsed once; second call served from the cache
-    finally:
-        G._load_credentials.cache_clear()
+    monkeypatch.setattr(A, "apply_attendance_rows", probe_apply)
+    db = make_db()  # keep the session alive so run's attributes resolve after the internal commit
+    run = A.import_attendance_sheet(_sheets_settings(), db)
+
+    assert held["locked"] is True          # apply ran under the lock
+    assert run.status == "success"
+    assert not A._import_lock.locked()     # released after the call returns
+
+
+def test_import_serializes_concurrent_applies(monkeypatch) -> None:
+    """Two overlapping imports never apply at the same time — the lock actually mutexes."""
+    import threading
+    import time
+
+    from backend.app import attendance_sheet as A
+
+    monkeypatch.setattr(A, "_fetch_attendance_rows", lambda settings: [])  # fetch is outside the lock
+    overlap = {"max": 0, "cur": 0}
+    counter = threading.Lock()
+
+    def slow_apply(db, rows, tz):
+        with counter:
+            overlap["cur"] += 1
+            overlap["max"] = max(overlap["max"], overlap["cur"])
+        time.sleep(0.05)  # widen the window so a missing mutex would overlap
+        with counter:
+            overlap["cur"] -= 1
+        return 0
+
+    monkeypatch.setattr(A, "apply_attendance_rows", slow_apply)
+    settings = _sheets_settings()
+    errors: list[Exception] = []
+
+    def worker():
+        try:
+            A.import_attendance_sheet(settings, make_db())
+        except Exception as exc:  # noqa: BLE001
+            errors.append(exc)
+
+    threads = [threading.Thread(target=worker) for _ in range(4)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(5)
+
+    assert errors == []
+    assert overlap["max"] == 1             # never two applies in flight → the lock serialized them

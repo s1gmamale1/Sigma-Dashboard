@@ -219,43 +219,66 @@ def apply_attendance_rows(db: Session, rows: list[SheetAttendanceRow], tz: ZoneI
     return sum(1 for row in rows if _upsert_row(db, row, tz))
 
 
-# Serializes attendance imports so the interval auto-sync loop and the on-demand
-# /attendance/import-sheet endpoint never overlap. Both callers run on worker threads
-# (asyncio.to_thread / FastAPI's sync-endpoint threadpool), so a threading.Lock is the
-# right primitive. Holding it across the whole import also makes the cached, non-thread-safe
-# Google client safe to reuse. An on-demand caller blocks until the in-flight import
-# finishes, then runs its own fresh import — exactly what the ingest agent wants after a write.
+# Serializes the *DB-write half* of an attendance import so the interval auto-sync loop
+# and the on-demand /attendance/import-sheet endpoint can't race on the (person, shift_date)
+# upserts. Both callers run on worker threads (asyncio.to_thread / FastAPI's sync-endpoint
+# threadpool), so a threading.Lock is the right primitive. The lock spans apply + commit
+# (commit must be inside it, or two imports could still both insert the same row and collide
+# at commit). The network fetch is deliberately *outside* the lock — each call builds its own
+# client, so a slow/hung Google call can never hold the lock or starve the endpoint threadpool.
 _import_lock = threading.Lock()
 
 
+def _fetch_attendance_rows(settings: Settings) -> list[SheetAttendanceRow]:
+    """Fetch + parse the attendance tab from Google Sheets. No DB writes, no lock."""
+    if not settings.google_credentials_path:
+        raise GoogleSheetError("SIGMA_GOOGLE_CREDENTIALS_PATH is not configured")
+    spreadsheet_id = resolve_spreadsheet_id(settings)
+    sheets = _service(settings, "sheets", "v4")
+    cell_range = f"{_quote_sheet_name(settings.attendance_tab)}!A1:Z2000"
+    response = (
+        sheets.spreadsheets()
+        .values()
+        .get(spreadsheetId=spreadsheet_id, range=cell_range, majorDimension="ROWS")
+        .execute()
+    )
+    values = [[str(cell) for cell in row] for row in response.get("values", [])]
+    return parse_attendance_grid(values)
+
+
+def _record_failed_run(db: Session, started: datetime, message: str) -> SheetSyncRun:
+    run = SheetSyncRun(
+        sync_type="attendance_import",
+        status="failed",
+        started_at=started,
+        finished_at=utc_now(),
+        error_message=message,
+    )
+    db.add(run)
+    db.commit()
+    return run
+
+
 def import_attendance_sheet(settings: Settings, db: Session) -> SheetSyncRun:
-    """Fetch + parse + apply the attendance tab; records a `SheetSyncRun` either way.
+    """Fetch + parse + apply the attendance tab; records (and commits) a `SheetSyncRun` either way.
 
-    Serialized via ``_import_lock`` so concurrent imports can't race on the
-    (person, shift_date) upserts or share the non-thread-safe Sheets client.
+    The Google fetch runs unsynchronized (per-call client); the DB apply + commit run under
+    ``_import_lock`` so concurrent imports can't race the (person, shift_date) upserts.
+    Failures are recorded, never raised, so the scheduler survives.
     """
-    with _import_lock:
-        return _import_attendance_sheet_locked(settings, db)
-
-
-def _import_attendance_sheet_locked(settings: Settings, db: Session) -> SheetSyncRun:
     started = utc_now()
     tz = ZoneInfo(settings.timezone)
     try:
-        if not settings.google_credentials_path:
-            raise GoogleSheetError("SIGMA_GOOGLE_CREDENTIALS_PATH is not configured")
-        spreadsheet_id = resolve_spreadsheet_id(settings)
-        sheets = _service(settings, "sheets", "v4")
-        cell_range = f"{_quote_sheet_name(settings.attendance_tab)}!A1:Z2000"
-        response = (
-            sheets.spreadsheets()
-            .values()
-            .get(spreadsheetId=spreadsheet_id, range=cell_range, majorDimension="ROWS")
-            .execute()
-        )
-        values = [[str(cell) for cell in row] for row in response.get("values", [])]
-        rows = parse_attendance_grid(values)
-        imported = apply_attendance_rows(db, rows, tz)
+        rows = _fetch_attendance_rows(settings)
+    except Exception as exc:  # noqa: BLE001 — fetch/auth failure: record it and move on
+        return _record_failed_run(db, started, str(exc))
+
+    with _import_lock:
+        try:
+            imported = apply_attendance_rows(db, rows, tz)
+        except Exception as exc:  # noqa: BLE001 — apply failure: roll back the partial write, record it
+            db.rollback()
+            return _record_failed_run(db, started, str(exc))
         run = SheetSyncRun(
             sync_type="attendance_import",
             status="success",
@@ -263,14 +286,6 @@ def _import_attendance_sheet_locked(settings: Settings, db: Session) -> SheetSyn
             finished_at=utc_now(),
             error_message=f"imported {imported} of {len(rows)} rows from '{settings.attendance_tab}'",
         )
-    except Exception as exc:  # noqa: BLE001 — failures are recorded, not raised, so the scheduler survives
-        run = SheetSyncRun(
-            sync_type="attendance_import",
-            status="failed",
-            started_at=started,
-            finished_at=utc_now(),
-            error_message=str(exc),
-        )
-    db.add(run)
-    db.flush()
-    return run
+        db.add(run)
+        db.commit()
+        return run

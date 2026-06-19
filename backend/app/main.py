@@ -25,8 +25,7 @@ logger = logging.getLogger("uvicorn.error")
 def _run_attendance_import_once() -> str:
     settings = get_settings()
     with Session(engine) as db:
-        run = import_attendance_sheet(settings, db)
-        db.commit()
+        run = import_attendance_sheet(settings, db)  # commits internally under the import lock
         logger.info("attendance sheet sync: %s — %s", run.status, run.error_message)
         return run.status
 
@@ -49,9 +48,10 @@ async def _attendance_sync_loop() -> None:
         except Exception:  # noqa: BLE001 — never let a sync failure kill the loop
             logger.exception("attendance sheet sync failed")
             failures += 1
-        # Exponential backoff (capped at 8x) on consecutive failures, so a broken sheet
-        # or credentials can't pin the Sheets API at the full interval cadence.
-        await asyncio.sleep(interval_seconds * (2 ** min(failures, 3)))
+        # A single transient failure retries at the base interval; only *consecutive*
+        # failures back off (exponentially, capped at 8x) so a persistently broken sheet
+        # or credentials can't pin the Sheets API while a one-off blip stays responsive.
+        await asyncio.sleep(interval_seconds * (2 ** min(max(0, failures - 1), 3)))
 
 
 API_DESCRIPTION = """\

@@ -909,8 +909,7 @@ def import_attendance_sheet_now(
     auto-sync loop runs on its interval. Accepts either an admin/manager JWT or the Viper
     ingest token (`X-Viper-Token`), so the ingest agent can refresh History right after it
     writes the sheet. Returns the recorded sync run (status + summary)."""
-    run = import_attendance_sheet(settings, db)
-    db.commit()
+    run = import_attendance_sheet(settings, db)  # commits internally under the import lock
     return ok(
         SheetSyncResult(
             id=run.id,

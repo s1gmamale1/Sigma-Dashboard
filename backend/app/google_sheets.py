@@ -1,5 +1,4 @@
 from datetime import date, datetime
-from functools import lru_cache
 from typing import Any
 
 from google.oauth2.service_account import Credentials
@@ -31,22 +30,15 @@ class GoogleSheetError(RuntimeError):
     pass
 
 
-@lru_cache(maxsize=4)
-def _load_credentials(credentials_path: str) -> Credentials:
-    """Read + parse the service-account file once per path.
-
-    The interval auto-sync now runs ~144x/day; without caching, each run re-read the
-    JSON off disk and re-parsed the RSA key. Cached by path so a rotated-path config
-    still reloads. The returned Credentials refreshes its own access tokens, and imports
-    are serialized by ``attendance_sheet._import_lock``, so reuse is safe.
-    """
-    return Credentials.from_service_account_file(credentials_path, scopes=SCOPES)
-
-
 def _credentials(settings: Settings) -> Credentials:
+    # Built per call on purpose: google.oauth2 Credentials is mutable and NOT thread-safe
+    # (googleapiclient refreshes the token in place), and it's used by both the serialized
+    # attendance import and the non-serialized preview/dashboard-import endpoints. Caching
+    # a single shared instance would race on token refresh and would also miss an in-place
+    # service-account key rotation. Re-reading the file each call is the safe, correct choice.
     if not settings.google_credentials_path:
         raise GoogleSheetError("SIGMA_GOOGLE_CREDENTIALS_PATH is not configured")
-    return _load_credentials(settings.google_credentials_path)
+    return Credentials.from_service_account_file(settings.google_credentials_path, scopes=SCOPES)
 
 
 def _quote_sheet_name(title: str) -> str:
