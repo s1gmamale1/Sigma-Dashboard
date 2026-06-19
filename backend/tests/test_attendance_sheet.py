@@ -199,8 +199,8 @@ class _StopLoop(Exception):
     """Sentinel raised from the patched sleep to break the otherwise-infinite loop."""
 
 
-def _drive_sync_loop(monkeypatch, interval_minutes: int, import_fn):
-    """Run one iteration of main._attendance_sync_loop and capture the import/sleep calls."""
+def _drive_sync_loop(monkeypatch, interval_minutes: int, import_fn, stop_after: int = 1):
+    """Drive main._attendance_sync_loop for `stop_after` iterations, capturing each sleep."""
     import asyncio
 
     import pytest
@@ -222,7 +222,8 @@ def _drive_sync_loop(monkeypatch, interval_minutes: int, import_fn):
 
     async def fake_sleep(seconds):
         sleeps.append(seconds)
-        raise _StopLoop
+        if len(sleeps) >= stop_after:
+            raise _StopLoop
 
     monkeypatch.setattr(main.asyncio, "to_thread", fake_to_thread)
     monkeypatch.setattr(main.asyncio, "sleep", fake_sleep)
@@ -235,26 +236,51 @@ def _drive_sync_loop(monkeypatch, interval_minutes: int, import_fn):
 def test_sync_loop_imports_immediately_then_sleeps_the_interval(monkeypatch) -> None:
     calls = {"n": 0}
 
-    def import_once() -> None:
+    def import_once() -> str:
         calls["n"] += 1
+        return "success"
 
     sleeps = _drive_sync_loop(monkeypatch, interval_minutes=10, import_fn=import_once)
 
     assert calls["n"] == 1          # imported right away, not waiting until 19:00
-    assert sleeps == [600.0]        # then sleeps the configured 10-minute interval
+    assert sleeps == [600.0]        # success → no backoff, sleeps the 10-minute interval
 
 
-def test_sync_loop_survives_import_failure(monkeypatch) -> None:
+def test_sync_loop_survives_single_failure_at_base_interval(monkeypatch) -> None:
     calls = {"n": 0}
 
-    def import_boom() -> None:
+    def import_boom() -> str:
         calls["n"] += 1
         raise RuntimeError("sheet unavailable")
 
     sleeps = _drive_sync_loop(monkeypatch, interval_minutes=5, import_fn=import_boom)
 
-    assert calls["n"] == 1          # the failing import ran
-    assert sleeps == [300.0]        # and the loop still scheduled the next run (5 min)
+    assert calls["n"] == 1          # the import actually ran on the failure path
+    # A single transient failure must NOT back off — the loop survives and retries at the
+    # base interval (the regression the reviewer flagged: one blip shouldn't stretch staleness).
+    assert sleeps == [300.0]
+
+
+def test_sync_loop_escalates_then_resets_backoff(monkeypatch) -> None:
+    statuses = iter(["failed", "failed", "failed", "success", "failed"])
+
+    def import_seq() -> str:
+        return next(statuses)
+
+    sleeps = _drive_sync_loop(monkeypatch, interval_minutes=10, import_fn=import_seq, stop_after=5)
+
+    # consecutive failures 1,2,3 → 1x,2x,4x; success resets → 1x; next failure → 1x again
+    assert sleeps == [600.0, 1200.0, 2400.0, 600.0, 600.0]
+
+
+def test_sync_loop_backoff_caps_at_8x(monkeypatch) -> None:
+    def always_failed() -> str:
+        return "failed"
+
+    sleeps = _drive_sync_loop(monkeypatch, interval_minutes=10, import_fn=always_failed, stop_after=6)
+
+    # 1,2,4,8 then capped at 8x — a long outage never stretches beyond 8x the interval
+    assert sleeps == [600.0, 1200.0, 2400.0, 4800.0, 4800.0, 4800.0]
 
 
 def test_sync_interval_default_is_ten_minutes() -> None:
@@ -265,3 +291,151 @@ def test_sync_interval_default_is_ten_minutes() -> None:
         viper_token="unit-test-viper-token-0123456789",
     )
     assert settings.sheet_sync_interval_minutes == 10
+
+
+# --------------------------------------------------------------------------- #
+# Import is serialized: the DB apply runs under _import_lock, and concurrent
+# imports never overlap (the fetch is outside the lock).
+# --------------------------------------------------------------------------- #
+
+def _sheets_settings():
+    from backend.app.config import Settings
+
+    return Settings(
+        jwt_secret="unit-test-jwt-secret-0123456789",
+        viper_token="unit-test-viper-token-0123456789",
+    )
+
+
+def test_import_fetches_outside_lock_applies_inside_and_persists_run(monkeypatch) -> None:
+    """The fetch runs OUTSIDE _import_lock (no network I/O under the lock), the apply runs
+    INSIDE it, and the SheetSyncRun is actually committed (not just held in memory)."""
+    from backend.app import attendance_sheet as A
+    from backend.app.models import SheetSyncRun
+
+    observed = {"fetch_locked": None, "apply_locked": None}
+    real_apply = A.apply_attendance_rows
+
+    def probe_fetch(settings):
+        observed["fetch_locked"] = A._import_lock.locked()
+        return []
+
+    def probe_apply(db, rows, tz):
+        observed["apply_locked"] = A._import_lock.locked()
+        return real_apply(db, rows, tz)
+
+    monkeypatch.setattr(A, "_fetch_attendance_rows", probe_fetch)
+    monkeypatch.setattr(A, "apply_attendance_rows", probe_apply)
+    db = make_db()  # keep the session alive so run's attributes resolve after the internal commit
+    run = A.import_attendance_sheet(_sheets_settings(), db)
+
+    assert observed["fetch_locked"] is False   # fetch ran outside the lock (no starvation risk)
+    assert observed["apply_locked"] is True     # apply ran inside the lock
+    assert run.status == "success"
+    assert run.id is not None                   # the run was actually committed...
+    assert db.scalar(select(SheetSyncRun).where(SheetSyncRun.id == run.id)) is not None  # ...and persisted
+    assert not A._import_lock.locked()          # released after the call returns
+
+
+def test_import_serializes_concurrent_applies(monkeypatch) -> None:
+    """Two overlapping imports never apply at the same time — the lock actually mutexes."""
+    import threading
+    import time
+
+    from backend.app import attendance_sheet as A
+
+    monkeypatch.setattr(A, "_fetch_attendance_rows", lambda settings: [])  # fetch is outside the lock
+    overlap = {"max": 0, "cur": 0}
+    counter = threading.Lock()
+
+    def slow_apply(db, rows, tz):
+        with counter:
+            overlap["cur"] += 1
+            overlap["max"] = max(overlap["max"], overlap["cur"])
+        time.sleep(0.05)  # widen the window so a missing mutex would overlap
+        with counter:
+            overlap["cur"] -= 1
+        return 0
+
+    monkeypatch.setattr(A, "apply_attendance_rows", slow_apply)
+    settings = _sheets_settings()
+    errors: list[Exception] = []
+
+    def worker():
+        db = make_db()
+        try:
+            A.import_attendance_sheet(settings, db)
+        except Exception as exc:  # noqa: BLE001
+            errors.append(exc)
+        finally:
+            db.close()
+
+    threads = [threading.Thread(target=worker) for _ in range(4)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(5)
+
+    assert all(not t.is_alive() for t in threads)  # no deadlock/hang (a lock bug would hang here)
+    assert errors == []
+    assert overlap["max"] == 1             # never two applies in flight → the lock serialized them
+
+
+def test_import_serializes_real_upserts_on_shared_db(monkeypatch, tmp_path) -> None:
+    """End-to-end: two concurrent imports of the SAME (person, shift_date) against ONE shared
+    DB don't collide on the unique constraint — the lock serializes the real upsert + commit."""
+    import threading
+
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    from backend.app import attendance_sheet as A
+    from backend.app.models import AttendanceRecord, Person
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'shared.db'}", connect_args={"check_same_thread": False}
+    )
+    Base.metadata.create_all(engine)
+    SessionFactory = sessionmaker(bind=engine)
+    seed = SessionFactory()
+    seed_db(seed)
+    seed.add(Person(slug="abdul", display_name="Abdul", active=True, sort_order=1))
+    seed.commit()
+    seed.close()
+
+    # Both imports parse to the SAME (abdul, 2026-06-01) row, so they contend on uq_attendance_person_shift.
+    grid = [
+        ["Name"],
+        ["", "Abdul", "", ""],
+        ["Date", "Arrival time", "Out time", "Status"],
+        ["2026-06-01", "18:00", "", "On time"],
+    ]
+    monkeypatch.setattr(A, "_fetch_attendance_rows", lambda settings: parse_attendance_grid(grid))
+    settings = _sheets_settings()
+    errors: list[Exception] = []
+
+    def worker():
+        db = SessionFactory()
+        try:
+            run = A.import_attendance_sheet(settings, db)
+            if run.status != "success":
+                errors.append(RuntimeError(run.error_message))
+        except Exception as exc:  # noqa: BLE001
+            errors.append(exc)
+        finally:
+            db.close()
+
+    threads = [threading.Thread(target=worker) for _ in range(4)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(5)
+
+    assert all(not t.is_alive() for t in threads)
+    assert errors == []                    # no IntegrityError / "database is locked" from the race
+    check = SessionFactory()
+    try:
+        rows = check.scalars(select(AttendanceRecord).where(AttendanceRecord.shift_date == date(2026, 6, 1))).all()
+    finally:
+        check.close()
+    assert len(rows) == 1                  # the unique row was upserted once, never duplicated

@@ -13,10 +13,13 @@ Chase state and notes are admin-owned and are never overwritten on re-sync.
 
 from __future__ import annotations
 
+import logging
+import threading
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
+from googleapiclient.errors import HttpError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -24,6 +27,7 @@ from .config import Settings
 from .db import utc_now
 from .google_sheets import (
     GoogleSheetError,
+    _google_error_message,
     _parse_date,
     _quote_sheet_name,
     _service,
@@ -37,6 +41,8 @@ from .services import (
     get_or_create_person,
     shift_start_datetime,
 )
+
+logger = logging.getLogger("uvicorn.error")
 
 PERSON_BLOCK_START = 1  # column B (0-indexed): first person's Arrival column
 PERSON_BLOCK_WIDTH = 3  # Arrival, Out, Status
@@ -218,40 +224,88 @@ def apply_attendance_rows(db: Session, rows: list[SheetAttendanceRow], tz: ZoneI
     return sum(1 for row in rows if _upsert_row(db, row, tz))
 
 
-def import_attendance_sheet(settings: Settings, db: Session) -> SheetSyncRun:
-    """Fetch + parse + apply the attendance tab; records a `SheetSyncRun` either way."""
-    started = utc_now()
-    tz = ZoneInfo(settings.timezone)
+# Serializes the *DB-write half* of an attendance import so the interval auto-sync loop
+# and the on-demand /attendance/import-sheet endpoint can't race on the (person, shift_date)
+# upserts. Both callers run on worker threads (asyncio.to_thread / FastAPI's sync-endpoint
+# threadpool), so a threading.Lock is the right primitive. The lock spans apply + commit
+# (commit must be inside it, or two imports could still both insert the same row and collide
+# at commit). The network fetch is deliberately *outside* the lock — each call builds its own
+# client, so a slow/hung Google call can never hold the lock or starve the endpoint threadpool.
+_import_lock = threading.Lock()
+
+
+def _fetch_attendance_rows(settings: Settings) -> list[SheetAttendanceRow]:
+    """Fetch + parse the attendance tab from Google Sheets. No DB writes, no lock."""
+    if not settings.google_credentials_path:
+        raise GoogleSheetError("SIGMA_GOOGLE_CREDENTIALS_PATH is not configured")
+    spreadsheet_id = resolve_spreadsheet_id(settings)
+    sheets = _service(settings, "sheets", "v4")
+    cell_range = f"{_quote_sheet_name(settings.attendance_tab)}!A1:Z2000"
     try:
-        if not settings.google_credentials_path:
-            raise GoogleSheetError("SIGMA_GOOGLE_CREDENTIALS_PATH is not configured")
-        spreadsheet_id = resolve_spreadsheet_id(settings)
-        sheets = _service(settings, "sheets", "v4")
-        cell_range = f"{_quote_sheet_name(settings.attendance_tab)}!A1:Z2000"
         response = (
             sheets.spreadsheets()
             .values()
             .get(spreadsheetId=spreadsheet_id, range=cell_range, majorDimension="ROWS")
             .execute()
         )
-        values = [[str(cell) for cell in row] for row in response.get("values", [])]
-        rows = parse_attendance_grid(values)
-        imported = apply_attendance_rows(db, rows, tz)
-        run = SheetSyncRun(
-            sync_type="attendance_import",
-            status="success",
-            started_at=started,
-            finished_at=utc_now(),
-            error_message=f"imported {imported} of {len(rows)} rows from '{settings.attendance_tab}'",
-        )
-    except Exception as exc:  # noqa: BLE001 — failures are recorded, not raised, so the scheduler survives
-        run = SheetSyncRun(
-            sync_type="attendance_import",
-            status="failed",
-            started_at=started,
-            finished_at=utc_now(),
-            error_message=str(exc),
-        )
-    db.add(run)
-    db.flush()
-    return run
+    except HttpError as exc:
+        # Surface the same friendly message as the other sheet endpoints, not a raw HttpError repr.
+        raise GoogleSheetError(_google_error_message(exc)) from exc
+    values = [[str(cell) for cell in row] for row in response.get("values", [])]
+    return parse_attendance_grid(values)
+
+
+def _new_run(status: str, started: datetime, message: str) -> SheetSyncRun:
+    return SheetSyncRun(
+        sync_type="attendance_import",
+        status=status,
+        started_at=started,
+        finished_at=utc_now(),
+        error_message=message,
+    )
+
+
+def _record_failed_run(db: Session, started: datetime, message: str) -> SheetSyncRun:
+    """Record a failed run under the lock (serialized with successful imports). Best-effort:
+    if even this commit fails (e.g. SQLite write contention with an unrelated writer), roll
+    back and return an unpersisted failed run rather than raise — the import contract is
+    'never raises', so neither the auto-sync loop nor the endpoint can blow up on a failure."""
+    try:
+        db.rollback()  # drop any partial/aborted transaction from a failed apply or commit
+        with _import_lock:
+            run = _new_run("failed", started, message)
+            db.add(run)
+            db.commit()
+            return run
+    except Exception:  # noqa: BLE001 — last resort; must not propagate
+        try:
+            db.rollback()
+        except Exception:  # noqa: BLE001
+            pass
+        logger.warning("attendance import: could not persist failed SheetSyncRun: %s", message)
+        return _new_run("failed", started, message)
+
+
+def import_attendance_sheet(settings: Settings, db: Session) -> SheetSyncRun:
+    """Fetch + parse + apply the attendance tab; records (and commits) a `SheetSyncRun` either way.
+
+    Never raises: a fetch, apply, *or commit* failure is rolled back and recorded as a failed
+    run. The Google fetch runs unsynchronized (per-call client); the DB apply + commit run under
+    ``_import_lock`` so concurrent attendance imports can't race the (person, shift_date) upserts.
+    """
+    started = utc_now()
+    tz = ZoneInfo(settings.timezone)
+    try:
+        rows = _fetch_attendance_rows(settings)
+        with _import_lock:
+            imported = apply_attendance_rows(db, rows, tz)
+            run = _new_run(
+                "success",
+                started,
+                f"imported {imported} of {len(rows)} rows from '{settings.attendance_tab}'",
+            )
+            db.add(run)
+            db.commit()
+            return run
+    except Exception as exc:  # noqa: BLE001 — any fetch/apply/commit failure is recorded, never raised
+        return _record_failed_run(db, started, str(exc))

@@ -31,6 +31,11 @@ class GoogleSheetError(RuntimeError):
 
 
 def _credentials(settings: Settings) -> Credentials:
+    # Built per call on purpose: google.oauth2 Credentials is mutable and NOT thread-safe
+    # (googleapiclient refreshes the token in place), and it's used by both the serialized
+    # attendance import and the non-serialized preview/dashboard-import endpoints. Caching
+    # a single shared instance would race on token refresh and would also miss an in-place
+    # service-account key rotation. Re-reading the file each call is the safe, correct choice.
     if not settings.google_credentials_path:
         raise GoogleSheetError("SIGMA_GOOGLE_CREDENTIALS_PATH is not configured")
     return Credentials.from_service_account_file(settings.google_credentials_path, scopes=SCOPES)

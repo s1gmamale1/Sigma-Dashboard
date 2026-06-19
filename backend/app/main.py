@@ -22,12 +22,15 @@ from .schemas import Envelope, ErrorBody
 logger = logging.getLogger("uvicorn.error")
 
 
-def _run_attendance_import_once() -> None:
+def _run_attendance_import_once() -> str:
     settings = get_settings()
-    with Session(engine) as db:
-        run = import_attendance_sheet(settings, db)
-        db.commit()
+    # expire_on_commit=False: import_attendance_sheet commits internally, and we read run.status
+    # afterward — without this, the read would issue a refresh SELECT that could itself error
+    # under DB contention and get misclassified as a failed sync.
+    with Session(engine, expire_on_commit=False) as db:
+        run = import_attendance_sheet(settings, db)  # commits internally under the import lock
         logger.info("attendance sheet sync: %s — %s", run.status, run.error_message)
+        return run.status
 
 
 async def _attendance_sync_loop() -> None:
@@ -40,12 +43,18 @@ async def _attendance_sync_loop() -> None:
     """
     settings = get_settings()
     interval_seconds = max(60.0, settings.sheet_sync_interval_minutes * 60)
+    failures = 0
     while True:
         try:
-            await asyncio.to_thread(_run_attendance_import_once)
+            status = await asyncio.to_thread(_run_attendance_import_once)
+            failures = 0 if status == "success" else failures + 1
         except Exception:  # noqa: BLE001 — never let a sync failure kill the loop
             logger.exception("attendance sheet sync failed")
-        await asyncio.sleep(interval_seconds)
+            failures += 1
+        # A single transient failure retries at the base interval; only *consecutive*
+        # failures back off (exponentially, capped at 8x) so a persistently broken sheet
+        # or credentials can't pin the Sheets API while a one-off blip stays responsive.
+        await asyncio.sleep(interval_seconds * (2 ** min(max(0, failures - 1), 3)))
 
 
 API_DESCRIPTION = """\
