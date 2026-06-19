@@ -111,25 +111,31 @@ _(raw ideas land here; promote to ROADMAP.md once scoped into a phase)_
 
 ### Ops / reliability
 
-- ⚙️ **[medium] concurrent-import race — auto-sync loop vs on-demand endpoint** — the every-10-min
-  sync loop (`backend/app/main.py:35-48`) and the now-Viper-triggerable on-demand import
-  (`backend/app/routes.py:893` → `import_attendance_sheet`) can run two `apply_attendance_rows`
-  passes against the same rows at once. Self-healing today (idempotent upserts, failure-safe
-  `try/except` recording a failed `SheetSyncRun`, SQLite serializes writes), so worst case is a
-  transient "database is locked" / redundant run, not corruption. Fix: a lightweight in-process
-  guard (module-level `threading.Lock`/`asyncio.Lock`) so the loop and the endpoint never overlap.
-  Effort: S.
-- ⚙️ **[low] immediate-import on every startup can storm the Sheets API** — the loop imports once
-  before its first sleep (`backend/app/main.py:43`); under launchd `KeepAlive` a crash-loop fires a
-  full fetch+parse on each restart. Bounded by `ThrottleInterval=10`, and the immediate-on-boot
-  behavior is intended (fresh History after a restart). Fix: a short startup delay or a
-  consecutive-failure backoff before re-importing. Effort: S.
+- ~~⚙️ **[medium] concurrent-import race — auto-sync loop vs on-demand endpoint**~~ → **shipped in PR #6**
+  (`4d66238`, 2026-06-19): a module-level `threading.Lock` in `attendance_sheet.py` serializes the DB
+  apply + commit of `import_attendance_sheet`, so the loop and the on-demand endpoint can't race the
+  `(person, shift_date)` upserts; the network fetch stays outside the lock.
+- ~~⚙️ **[low] immediate-import on every startup can storm the Sheets API**~~ → **shipped in PR #6**
+  (`4d66238`): the auto-sync loop now applies exponential backoff (consecutive-failure only, capped 8×),
+  so a persistently broken sheet/creds can't pin the Sheets API; immediate-on-boot is retained.
 
 ### Optimizations
 
-- 🧹 **[low] Google service/credentials rebuilt every loop iteration (~144×/day)** — `import_attendance_sheet`
-  → `_service()` → `_credentials()` re-reads the service-account JSON off disk and parses the RSA key,
-  then `build()` constructs a fresh client on every run (`backend/app/google_sheets.py:47`). Was 1×/day,
-  now ~every 10 min. Fix: cache `_service`/`_credentials` (e.g. `@functools.lru_cache` keyed on the
-  credentials path, or build once and reuse across iterations) so the loop pays only for the network
-  fetch. Effort: S.
+- 🧹 **[low] Google client rebuilt every loop iteration (~144×/day)** — `import_attendance_sheet`
+  → `_service()` → `build()` constructs a fresh discovery client on every run (`backend/app/google_sheets.py`).
+  **Caching attempted in PR #6 and REVERTED**: an `lru_cache` on `_credentials` shared one mutable,
+  non-thread-safe `Credentials` object across the (locked) import and the (un-locked) preview/dashboard-import
+  endpoints — a token-refresh race — and a path-only key missed in-place key rotation. A safe win must cache
+  something immutable (e.g. the parsed discovery document) or serialize *all* sheet access, not the Credentials.
+  Effort: M.
+
+### Concurrency (discovered during PR #6 review)
+
+- ⚙️ **[medium] dashboard-import path bypasses the attendance import lock** — `import_attendance_sheet`
+  is serialized by `_import_lock`, but the parallel dashboard importer
+  (`routes.py` `google_sheet_import` → `google_sheets.import_google_sheet_dashboard_data` →
+  `_import_attendance_rows` → `upsert_attendance`) writes the same `AttendanceRecord(person_id, shift_date)`
+  unique key WITHOUT the lock. A concurrent dashboard import + auto-sync/on-demand import can still collide
+  on `uq_attendance_person_shift` → `IntegrityError` (500/400 on the dashboard path, which lacks the
+  never-raise handling). Fix needs a shared lock across both writers (e.g. move `_import_lock` to a neutral
+  module and wrap the dashboard attendance-write section). Its own PR — touches `google_sheets.py`. Effort: M.
