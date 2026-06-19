@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     google_sheet_name: str = "HR Department"
     attendance_tab: str = "Sigma Attendnace"
     sheet_sync_enabled: bool = True
+    # The attendance import runs on this fixed interval so the History view tracks the
+    # HR sheet within minutes. (sheet_sync_hour/minute are retained for compatibility
+    # with existing .env files but are no longer used by the auto-sync loop.)
+    sheet_sync_interval_minutes: int = 10
     sheet_sync_hour: int = 19
     sheet_sync_minute: int = 0
     frontend_dist_path: str = "frontend/dist"

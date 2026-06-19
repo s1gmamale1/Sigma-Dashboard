@@ -1,9 +1,7 @@
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
 from pathlib import Path
-from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.encoders import jsonable_encoder
@@ -33,21 +31,21 @@ def _run_attendance_import_once() -> None:
 
 
 async def _attendance_sync_loop() -> None:
-    """Run the attendance import once per day at the configured local time."""
+    """Import the attendance sheet on a fixed short interval.
+
+    Previously this ran once per day at 19:00, so the History view could lag up to
+    ~24h behind the HR sheet. Importing every ``sheet_sync_interval_minutes`` keeps
+    History within minutes of the sheet. The import runs immediately on startup and
+    then every interval; a sync failure is logged but never kills the loop.
+    """
     settings = get_settings()
-    tz = ZoneInfo(settings.timezone)
+    interval_seconds = max(60.0, settings.sheet_sync_interval_minutes * 60)
     while True:
-        now = datetime.now(tz)
-        target = now.replace(
-            hour=settings.sheet_sync_hour, minute=settings.sheet_sync_minute, second=0, microsecond=0
-        )
-        if target <= now:
-            target += timedelta(days=1)
-        await asyncio.sleep(max(1.0, (target - now).total_seconds()))
         try:
             await asyncio.to_thread(_run_attendance_import_once)
         except Exception:  # noqa: BLE001 — never let a sync failure kill the loop
             logger.exception("attendance sheet sync failed")
+        await asyncio.sleep(interval_seconds)
 
 
 API_DESCRIPTION = """\
@@ -95,10 +93,8 @@ async def lifespan(_: FastAPI):
     if settings.sheet_sync_enabled and settings.google_credentials_path:
         task = asyncio.create_task(_attendance_sync_loop())
         logger.info(
-            "attendance sheet auto-sync scheduled daily at %02d:%02d %s",
-            settings.sheet_sync_hour,
-            settings.sheet_sync_minute,
-            settings.timezone,
+            "attendance sheet auto-sync scheduled every %d min",
+            settings.sheet_sync_interval_minutes,
         )
     try:
         yield

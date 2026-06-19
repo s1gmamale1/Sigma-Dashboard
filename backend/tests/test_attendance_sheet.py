@@ -189,3 +189,79 @@ def test_off_day_record_satisfies_check_constraint() -> None:
         )
     )
     db.commit()  # would raise IntegrityError if off_day is not in the CHECK constraint
+
+
+# --------------------------------------------------------------------------- #
+# Auto-sync loop: imports on a short interval (not once/day), and never dies on error
+# --------------------------------------------------------------------------- #
+
+class _StopLoop(Exception):
+    """Sentinel raised from the patched sleep to break the otherwise-infinite loop."""
+
+
+def _drive_sync_loop(monkeypatch, interval_minutes: int, import_fn):
+    """Run one iteration of main._attendance_sync_loop and capture the import/sleep calls."""
+    import asyncio
+
+    import pytest
+
+    from backend.app import config, main
+
+    sleeps: list[float] = []
+
+    settings = config.Settings(
+        jwt_secret="unit-test-jwt-secret-0123456789",
+        viper_token="unit-test-viper-token-0123456789",
+        sheet_sync_interval_minutes=interval_minutes,
+    )
+    monkeypatch.setattr(main, "get_settings", lambda: settings)
+    monkeypatch.setattr(main, "_run_attendance_import_once", import_fn)
+
+    async def fake_to_thread(fn, *args, **kwargs):
+        return fn(*args, **kwargs)
+
+    async def fake_sleep(seconds):
+        sleeps.append(seconds)
+        raise _StopLoop
+
+    monkeypatch.setattr(main.asyncio, "to_thread", fake_to_thread)
+    monkeypatch.setattr(main.asyncio, "sleep", fake_sleep)
+
+    with pytest.raises(_StopLoop):
+        asyncio.run(main._attendance_sync_loop())
+    return sleeps
+
+
+def test_sync_loop_imports_immediately_then_sleeps_the_interval(monkeypatch) -> None:
+    calls = {"n": 0}
+
+    def import_once() -> None:
+        calls["n"] += 1
+
+    sleeps = _drive_sync_loop(monkeypatch, interval_minutes=10, import_fn=import_once)
+
+    assert calls["n"] == 1          # imported right away, not waiting until 19:00
+    assert sleeps == [600.0]        # then sleeps the configured 10-minute interval
+
+
+def test_sync_loop_survives_import_failure(monkeypatch) -> None:
+    calls = {"n": 0}
+
+    def import_boom() -> None:
+        calls["n"] += 1
+        raise RuntimeError("sheet unavailable")
+
+    sleeps = _drive_sync_loop(monkeypatch, interval_minutes=5, import_fn=import_boom)
+
+    assert calls["n"] == 1          # the failing import ran
+    assert sleeps == [300.0]        # and the loop still scheduled the next run (5 min)
+
+
+def test_sync_interval_default_is_ten_minutes() -> None:
+    from backend.app.config import Settings
+
+    settings = Settings(
+        jwt_secret="unit-test-jwt-secret-0123456789",
+        viper_token="unit-test-viper-token-0123456789",
+    )
+    assert settings.sheet_sync_interval_minutes == 10

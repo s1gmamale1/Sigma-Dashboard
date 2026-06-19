@@ -114,14 +114,43 @@ def require_admin(user: User = Depends(get_current_user)) -> User:
     return user
 
 
+def _is_viper_token(token: str | None, settings: Settings) -> bool:
+    """Constant-time check that ``token`` is the shared Viper ingest secret."""
+    return bool(token) and secrets.compare_digest(
+        token.encode("utf-8"), settings.viper_token.encode("utf-8")
+    )
+
+
 def require_viper(
     x_viper_token: str | None = Depends(viper_scheme),
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     settings: Settings = Depends(get_settings),
 ) -> str:
     token = x_viper_token or (credentials.credentials if credentials else None)
-    if not token or not secrets.compare_digest(
-        token.encode("utf-8"), settings.viper_token.encode("utf-8")
-    ):
+    if not _is_viper_token(token, settings):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Viper token")
     return "viper"
+
+
+def require_edit_or_viper(
+    x_viper_token: str | None = Depends(viper_scheme),
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    settings: Settings = Depends(get_settings),
+    db: Session = Depends(get_db),
+) -> str:
+    """Allow either the Viper ingest token OR an edit-capable user (admin/manager).
+
+    This lets the ingest agent trigger an on-demand attendance import right after it
+    writes the HR sheet (via ``X-Viper-Token`` or a bearer of the same secret), while
+    still permitting admins/managers to trigger it from the dashboard with their JWT.
+    """
+    if _is_viper_token(x_viper_token, settings) or _is_viper_token(
+        credentials.credentials if credentials else None, settings
+    ):
+        return "viper"
+    # Not a Viper token — fall back to an edit-capable JWT user (raises 401/403 as needed).
+    user = get_current_user(credentials=credentials, settings=settings, db=db)
+    _gate_password(user)
+    if not can_write(user.role):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This account is read-only")
+    return user.username
