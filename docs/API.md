@@ -73,7 +73,7 @@ curl -s -X POST http://localhost:8001/api/v1/viper/attendance \
 | `GET` | `/attendance/history?from=&to=` | Admin | People × days grid; missing days return a `missing` cell. |
 | `GET` | `/attendance/weekly-summary?week_start=` | Admin | Per-person counts of each status (on-time / late / 15+ late / no-show / absent) for the Mon–Sun week. |
 | `PATCH` | `/attendance/{record_id}/chase-state` | Admin | Set chase state (`none`/`needs_chase`/`chased`/`resolved`). |
-| `POST` | `/attendance/import-sheet` | Admin | Pull the wide HR `Sigma Attendnace` tab into the dashboard now (same job as the 19:00 auto-sync). |
+| `POST` | `/attendance/import-sheet` | Admin / Viper | Pull the wide HR `Sigma Attendnace` tab into the dashboard now (same job as the interval auto-sync); also accepts `X-Viper-Token` so the ingest agent can refresh on demand. |
 
 Attendance records and history cells expose both `check_in_at` and `check_out_at` (the
 after-midnight ~03:00 checkout, `null` until the next-day sync fills it in), alongside `status`,
@@ -148,9 +148,9 @@ The Viper/openclaw agent already writes check-in/out + status into the HR Depart
 Arrival/Out/Status from column B; names on row 2; data from row 4). The dashboard **pulls** it —
 the agent does **not** double-write to the API.
 
-- **Schedule:** every day at **19:00 Asia/Tashkent** (configurable via `SIGMA_SHEET_SYNC_HOUR`/
-  `SIGMA_SHEET_SYNC_MINUTE`/`SIGMA_SHEET_SYNC_ENABLED`). At 19:00 arrivals exist; out-times (~03:00)
-  appear on the following day's run.
+- **Schedule:** every **`SIGMA_SHEET_SYNC_INTERVAL_MINUTES`** (default 10, floored at 1 min;
+  toggle with `SIGMA_SHEET_SYNC_ENABLED`). The import also runs immediately on startup, so the
+  History view tracks the sheet within minutes. Out-times (~03:00) appear once the sheet has them.
 - **Classification:** the sheet's **Status** column is authoritative — its five values map
   straight through (On time → `on_time`, Late → `late`, 15+ Late → `late_15`, No Show →
   `no_show`, Absent → `absent`); the **Arrival time** only sets the minutes-late detail. If the
