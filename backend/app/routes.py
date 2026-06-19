@@ -15,6 +15,7 @@ from .auth import (
     hash_password,
     require_admin,
     require_edit,
+    require_edit_or_viper,
     require_view,
     require_viper,
 )
@@ -894,15 +895,20 @@ def google_sheet_import(
     response_model=Envelope[SheetSyncResult],
     tags=["Attendance"],
     summary="Import attendance from the HR sheet now",
-    responses={**UNAUTHORIZED},
+    responses={
+        401: _err("Missing or invalid credentials (edit-capable admin bearer token or `X-Viper-Token`)."),
+        403: _err("Account is read-only (edit-capable JWT or `X-Viper-Token` required)."),
+    },
 )
 def import_attendance_sheet_now(
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
-    _: User = Depends(require_edit),
+    _: str = Depends(require_edit_or_viper),
 ) -> Envelope:
     """Pull the wide `Sigma Attendnace` tab into the dashboard immediately — the same job the
-    daily 19:00 Asia/Tashkent auto-sync runs. Returns the recorded sync run (status + summary)."""
+    auto-sync loop runs on its interval. Accepts either an admin/manager JWT or the Viper
+    ingest token (`X-Viper-Token`), so the ingest agent can refresh History right after it
+    writes the sheet. Returns the recorded sync run (status + summary)."""
     run = import_attendance_sheet(settings, db)
     db.commit()
     return ok(

@@ -114,14 +114,45 @@ def require_admin(user: User = Depends(get_current_user)) -> User:
     return user
 
 
+def _is_viper_token(token: str | None, settings: Settings) -> bool:
+    """Constant-time check that ``token`` is the shared Viper ingest secret."""
+    return bool(token) and secrets.compare_digest(
+        token.encode("utf-8"), settings.viper_token.encode("utf-8")
+    )
+
+
 def require_viper(
     x_viper_token: str | None = Depends(viper_scheme),
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
     settings: Settings = Depends(get_settings),
 ) -> str:
     token = x_viper_token or (credentials.credentials if credentials else None)
-    if not token or not secrets.compare_digest(
-        token.encode("utf-8"), settings.viper_token.encode("utf-8")
-    ):
+    if not _is_viper_token(token, settings):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Viper token")
     return "viper"
+
+
+def require_edit_or_viper(
+    x_viper_token: str | None = Depends(viper_scheme),
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    settings: Settings = Depends(get_settings),
+    db: Session = Depends(get_db),
+) -> str:
+    """Allow either the Viper ingest token OR an edit-capable user (admin/manager).
+
+    This lets the ingest agent trigger an on-demand attendance import right after it
+    writes the HR sheet (via ``X-Viper-Token`` or a bearer of the same secret), while
+    still permitting admins/managers to trigger it from the dashboard with their JWT.
+    """
+    # Same header-or-bearer resolution as require_viper, so the ingest agent is
+    # recognized identically across /viper/* and this endpoint.
+    token = x_viper_token or (credentials.credentials if credentials else None)
+    if _is_viper_token(token, settings):
+        return "viper"
+    if x_viper_token is not None and credentials is None:
+        # A Viper token was offered but didn't match — report that, not "Missing bearer token".
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Viper token")
+    # Otherwise fall back to an edit-capable JWT user (require_edit raises 401/403 as needed),
+    # reusing the one edit gate so this endpoint can never drift from the others.
+    user = get_current_user(credentials=credentials, settings=settings, db=db)
+    return require_edit(user).username

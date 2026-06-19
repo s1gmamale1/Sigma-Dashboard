@@ -21,8 +21,10 @@ class Settings(BaseSettings):
     google_sheet_name: str = "HR Department"
     attendance_tab: str = "Sigma Attendnace"
     sheet_sync_enabled: bool = True
-    sheet_sync_hour: int = 19
-    sheet_sync_minute: int = 0
+    # Auto-sync imports the HR sheet on this fixed interval so History tracks the sheet
+    # within minutes. The loop floors the effective cadence at 60s, so a 0/negative
+    # value can never busy-loop the Sheets API — it is treated as a 1-minute interval.
+    sheet_sync_interval_minutes: int = 10
     frontend_dist_path: str = "frontend/dist"
     gateway_ws_url: str = "ws://127.0.0.1:18789"
     gateway_token: str = ""

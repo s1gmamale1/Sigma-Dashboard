@@ -91,8 +91,7 @@ that already writes check-in/out to the sheet never double-writes:
 SIGMA_GOOGLE_SHEET_ID=<the HR Department spreadsheet id>   # required when the name is ambiguous
 SIGMA_ATTENDANCE_TAB=Sigma Attendnace
 SIGMA_SHEET_SYNC_ENABLED=true
-SIGMA_SHEET_SYNC_HOUR=19          # 19:00 Asia/Tashkent, daily
-SIGMA_SHEET_SYNC_MINUTE=0
+SIGMA_SHEET_SYNC_INTERVAL_MINUTES=10   # auto-import cadence; floored at 1 min
 ```
 
 The sheet's Status column is authoritative — its five values (On time / Late / 15+ Late /

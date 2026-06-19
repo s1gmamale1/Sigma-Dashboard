@@ -80,3 +80,74 @@ def test_login_rate_limited_after_five_attempts() -> None:
         app.dependency_overrides.pop(get_settings, None)
         app.dependency_overrides.pop(get_db, None)
         ratelimit.reset()
+
+
+def _bearer(token: str):
+    from fastapi.security import HTTPAuthorizationCredentials
+
+    return HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+
+
+def _session_with_user(role: str) -> Session:
+    from backend.app.models import User
+
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    Base.metadata.create_all(engine)
+    session = Session(engine)
+    session.add(
+        User(
+            username="someone",
+            display_name="Some One",
+            password_hash="x",
+            role=role,
+            active=True,
+            must_change_password=False,
+        )
+    )
+    session.commit()
+    return session
+
+
+def test_require_edit_or_viper_accepts_viper_token() -> None:
+    """The ingest agent can trigger the on-demand import with the Viper secret —
+    via the X-Viper-Token header or a bearer of the same secret. The DB is never
+    consulted on this path, so a None session is fine."""
+    from backend.app.auth import require_edit_or_viper
+
+    settings = make_settings()
+    assert require_edit_or_viper("unit-test-viper-token-0123456789", None, settings, None) == "viper"
+    assert require_edit_or_viper(None, _bearer("unit-test-viper-token-0123456789"), settings, None) == "viper"
+
+
+def test_require_edit_or_viper_rejects_missing_or_wrong_credentials() -> None:
+    from backend.app.auth import require_edit_or_viper
+
+    settings = make_settings()
+    with pytest.raises(HTTPException) as missing:  # no credentials at all
+        require_edit_or_viper(None, None, settings, None)
+    assert missing.value.status_code == 401
+    with pytest.raises(HTTPException):  # a bearer that is neither the Viper token nor a valid JWT
+        require_edit_or_viper(None, _bearer("not-a-real-token"), settings, None)
+
+    # A wrong X-Viper-Token with no JWT reports the Viper failure specifically,
+    # not a misleading "Missing bearer token".
+    with pytest.raises(HTTPException) as wrong_viper:
+        require_edit_or_viper("wrong-viper-token", None, settings, None)
+    assert wrong_viper.value.status_code == 401
+    assert "Viper" in str(wrong_viper.value.detail)
+
+
+def test_require_edit_or_viper_accepts_edit_user_and_rejects_viewer() -> None:
+    from backend.app.auth import create_access_token, require_edit_or_viper
+
+    settings = make_settings()
+
+    admin_session = _session_with_user("admin")
+    admin_token, _ = create_access_token(settings, "someone", "admin")
+    assert require_edit_or_viper(None, _bearer(admin_token), settings, admin_session) == "someone"
+
+    viewer_session = _session_with_user("viewer")
+    viewer_token, _ = create_access_token(settings, "someone", "viewer")
+    with pytest.raises(HTTPException) as exc:
+        require_edit_or_viper(None, _bearer(viewer_token), settings, viewer_session)
+    assert exc.value.status_code == 403
