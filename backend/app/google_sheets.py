@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from functools import lru_cache
 from typing import Any
 
 from google.oauth2.service_account import Credentials
@@ -30,10 +31,22 @@ class GoogleSheetError(RuntimeError):
     pass
 
 
+@lru_cache(maxsize=4)
+def _load_credentials(credentials_path: str) -> Credentials:
+    """Read + parse the service-account file once per path.
+
+    The interval auto-sync now runs ~144x/day; without caching, each run re-read the
+    JSON off disk and re-parsed the RSA key. Cached by path so a rotated-path config
+    still reloads. The returned Credentials refreshes its own access tokens, and imports
+    are serialized by ``attendance_sheet._import_lock``, so reuse is safe.
+    """
+    return Credentials.from_service_account_file(credentials_path, scopes=SCOPES)
+
+
 def _credentials(settings: Settings) -> Credentials:
     if not settings.google_credentials_path:
         raise GoogleSheetError("SIGMA_GOOGLE_CREDENTIALS_PATH is not configured")
-    return Credentials.from_service_account_file(settings.google_credentials_path, scopes=SCOPES)
+    return _load_credentials(settings.google_credentials_path)
 
 
 def _quote_sheet_name(title: str) -> str:

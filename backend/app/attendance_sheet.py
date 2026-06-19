@@ -13,6 +13,7 @@ Chase state and notes are admin-owned and are never overwritten on re-sync.
 
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
@@ -218,8 +219,26 @@ def apply_attendance_rows(db: Session, rows: list[SheetAttendanceRow], tz: ZoneI
     return sum(1 for row in rows if _upsert_row(db, row, tz))
 
 
+# Serializes attendance imports so the interval auto-sync loop and the on-demand
+# /attendance/import-sheet endpoint never overlap. Both callers run on worker threads
+# (asyncio.to_thread / FastAPI's sync-endpoint threadpool), so a threading.Lock is the
+# right primitive. Holding it across the whole import also makes the cached, non-thread-safe
+# Google client safe to reuse. An on-demand caller blocks until the in-flight import
+# finishes, then runs its own fresh import — exactly what the ingest agent wants after a write.
+_import_lock = threading.Lock()
+
+
 def import_attendance_sheet(settings: Settings, db: Session) -> SheetSyncRun:
-    """Fetch + parse + apply the attendance tab; records a `SheetSyncRun` either way."""
+    """Fetch + parse + apply the attendance tab; records a `SheetSyncRun` either way.
+
+    Serialized via ``_import_lock`` so concurrent imports can't race on the
+    (person, shift_date) upserts or share the non-thread-safe Sheets client.
+    """
+    with _import_lock:
+        return _import_attendance_sheet_locked(settings, db)
+
+
+def _import_attendance_sheet_locked(settings: Settings, db: Session) -> SheetSyncRun:
     started = utc_now()
     tz = ZoneInfo(settings.timezone)
     try:

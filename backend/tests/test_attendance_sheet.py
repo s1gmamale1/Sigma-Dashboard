@@ -235,26 +235,40 @@ def _drive_sync_loop(monkeypatch, interval_minutes: int, import_fn):
 def test_sync_loop_imports_immediately_then_sleeps_the_interval(monkeypatch) -> None:
     calls = {"n": 0}
 
-    def import_once() -> None:
+    def import_once() -> str:
         calls["n"] += 1
+        return "success"
 
     sleeps = _drive_sync_loop(monkeypatch, interval_minutes=10, import_fn=import_once)
 
     assert calls["n"] == 1          # imported right away, not waiting until 19:00
-    assert sleeps == [600.0]        # then sleeps the configured 10-minute interval
+    assert sleeps == [600.0]        # success → no backoff, sleeps the 10-minute interval
 
 
-def test_sync_loop_survives_import_failure(monkeypatch) -> None:
+def test_sync_loop_survives_and_backs_off_on_raised_failure(monkeypatch) -> None:
     calls = {"n": 0}
 
-    def import_boom() -> None:
+    def import_boom() -> str:
         calls["n"] += 1
         raise RuntimeError("sheet unavailable")
 
     sleeps = _drive_sync_loop(monkeypatch, interval_minutes=5, import_fn=import_boom)
 
-    assert calls["n"] == 1          # the failing import ran
-    assert sleeps == [300.0]        # and the loop still scheduled the next run (5 min)
+    assert calls["n"] == 1          # the failing import ran (loop survived the exception)
+    assert sleeps == [600.0]        # 1 failure → 2x backoff over the 5-minute interval
+
+
+def test_sync_loop_backs_off_on_failed_status(monkeypatch) -> None:
+    calls = {"n": 0}
+
+    def import_failed() -> str:
+        calls["n"] += 1
+        return "failed"             # import_attendance_sheet records failure, doesn't raise
+
+    sleeps = _drive_sync_loop(monkeypatch, interval_minutes=10, import_fn=import_failed)
+
+    assert calls["n"] == 1
+    assert sleeps == [1200.0]       # a "failed" status also triggers the 2x backoff
 
 
 def test_sync_interval_default_is_ten_minutes() -> None:
@@ -265,3 +279,59 @@ def test_sync_interval_default_is_ten_minutes() -> None:
         viper_token="unit-test-viper-token-0123456789",
     )
     assert settings.sheet_sync_interval_minutes == 10
+
+
+# --------------------------------------------------------------------------- #
+# Import is serialized (lock) and the Sheets credentials are cached
+# --------------------------------------------------------------------------- #
+
+def test_import_attendance_sheet_runs_under_the_import_lock(monkeypatch) -> None:
+    """The import body executes while _import_lock is held, so the interval loop and the
+    on-demand endpoint can never run a sheet import concurrently."""
+    from backend.app import attendance_sheet as A
+    from backend.app.config import Settings
+
+    held = {"locked": None}
+
+    def probe_service(settings, api, version):
+        held["locked"] = A._import_lock.locked()
+        raise A.GoogleSheetError("stop after lock check")
+
+    monkeypatch.setattr(A, "_service", probe_service)
+    settings = Settings(
+        jwt_secret="unit-test-jwt-secret-0123456789",
+        viper_token="unit-test-viper-token-0123456789",
+        google_credentials_path="/tmp/does-not-matter.json",
+        google_sheet_id="sheet-123",  # set so resolve_spreadsheet_id returns without a _service call
+    )
+    run = A.import_attendance_sheet(settings, make_db())
+
+    assert held["locked"] is True          # the body ran while the lock was held
+    assert run.status == "failed"          # probe short-circuited; failure recorded, never raised
+    assert not A._import_lock.locked()     # lock released after the call returns
+
+
+def test_credentials_are_cached_per_path(monkeypatch) -> None:
+    """The service-account file is read+parsed once per path, not on every import."""
+    from backend.app import google_sheets as G
+    from backend.app.config import Settings
+
+    calls = {"n": 0}
+
+    def fake_from_file(path, scopes=None):
+        calls["n"] += 1
+        return object()
+
+    monkeypatch.setattr(G.Credentials, "from_service_account_file", fake_from_file)
+    G._load_credentials.cache_clear()
+    try:
+        settings = Settings(
+            jwt_secret="unit-test-jwt-secret-0123456789",
+            viper_token="unit-test-viper-token-0123456789",
+            google_credentials_path="/tmp/sa.json",
+        )
+        G._credentials(settings)
+        G._credentials(settings)
+        assert calls["n"] == 1             # parsed once; second call served from the cache
+    finally:
+        G._load_credentials.cache_clear()
