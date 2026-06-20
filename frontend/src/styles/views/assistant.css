@@ -9,40 +9,39 @@
   inherits: false;
 }
 
+/* The chat FAB is an exact copy of the topbar brand orb: it carries the
+   .sigma-orb class (see decor.css) for the whole iridescent-bubble look. These
+   rules only make it a floating action button — fixed, larger, interactive —
+   and must NOT redefine the orb's background/shadow/animation. assistant.css is
+   imported after decor.css, so position:fixed here overrides .sigma-orb's
+   position:relative on equal specificity. */
 .viper-orb {
+  --orb: 56px;          /* drives the inherited .sigma-orb width/height */
   position: fixed;
   right: 24px;
   bottom: 24px;
   z-index: 31;
-  width: 56px;
-  height: 56px;
   border: 0;
-  border-radius: var(--r-pill);
   cursor: pointer;
-  background: radial-gradient(circle at 35% 30%, #fff6, transparent 60%), var(--grad-sigma);
-  box-shadow: var(--shadow-float);
-  isolation: isolate;
+  transition: box-shadow 0.25s ease, filter 0.18s ease;
 }
-.viper-orb__rim {
-  position: absolute;
-  inset: -3px;
-  border-radius: inherit;
-  /* Cool palette only — no amber/orange */
-  background: conic-gradient(from 0deg, var(--s-violet), var(--s-azure), #98aeea, #ef638a, #ff646a, var(--s-violet));
-  filter: blur(6px);
-  opacity: 0.85;
-  z-index: -1;
-  animation: viper-rim 4.2s linear infinite;
+/* Hover/press use glow + brightness, not transform: .sigma-orb runs a breathe
+   scale animation that would override any transform:scale here. */
+.viper-orb:hover {
+  box-shadow:
+    0 4px 16px rgba(120, 90, 210, 0.55),
+    0 0 22px rgba(103, 167, 255, 0.42);
+  filter: brightness(1.06);
 }
-.viper-orb[data-state="streaming"] .viper-orb__rim { animation-duration: 1.6s; opacity: 1; }
-.viper-orb__core {
-  position: absolute;
-  inset: 6px;
-  border-radius: inherit;
-  background: var(--glass-fill);
-  backdrop-filter: blur(8px);
+.viper-orb:active { filter: brightness(0.95); }
+/* Streaming cue: the soap-film swirl spins ~3× faster and the glow brightens,
+   so the orb still signals "Viper is thinking". */
+.viper-orb[data-state="streaming"]::before { animation-duration: 5s; }
+.viper-orb[data-state="streaming"] {
+  box-shadow:
+    0 2px 12px rgba(120, 90, 210, 0.55),
+    0 0 18px rgba(103, 167, 255, 0.45);
 }
-@keyframes viper-rim { to { transform: rotate(360deg); } }
 
 /* Edge ring: a 1.5px conic-gradient border that slowly rotates around the panel.
    Sits at inset:0 so it is INSIDE the border-box and not clipped by overflow:hidden.
@@ -245,7 +244,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .viper-orb__rim { animation: none; }
+  /* Freeze the inherited sigma-orb swirl/breathe on the FAB */
+  .viper-orb, .viper-orb::before, .viper-orb::after { animation: none; }
   /* Freeze edge ring rotation — keep a static faint ring for visual continuity */
   .viper-dock::before { animation: none; filter: drop-shadow(0 0 3px #bc82f322); opacity: 0.5; }
   /* Instant open and close — no scale animations */
@@ -254,7 +254,10 @@
   .viper-bubble { animation: none; opacity: 0.5; }
   .viper-dock__input input[data-typing="true"] { animation: none; }
 }
-.viper-orb[data-reduced="true"] .viper-orb__rim { animation: none; }
+/* JS-detected reduced motion: freeze the inherited sigma-orb animations */
+.viper-orb[data-reduced="true"],
+.viper-orb[data-reduced="true"]::before,
+.viper-orb[data-reduced="true"]::after { animation: none; }
 /* Honor reduced-motion via data attribute on the dock */
 .viper-dock[data-reduced="true"]::before { animation: none; filter: drop-shadow(0 0 3px #bc82f322); opacity: 0.5; }
 .viper-dock[data-reduced="true"] { animation: none; }

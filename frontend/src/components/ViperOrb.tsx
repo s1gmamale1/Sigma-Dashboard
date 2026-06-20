@@ -10,17 +10,16 @@ export function ViperOrb({
   label: string;
 }) {
   const reduced = useReducedMotion();
+  // Identical to the topbar brand orb: the whole iridescent bubble renders from
+  // .sigma-orb's own ::before swirl + ::after glass shell, so it needs no children.
   return (
     <button
       type="button"
-      className="viper-orb"
+      className="viper-orb sigma-orb"
       data-state={state}
       data-reduced={reduced ? "true" : "false"}
       onClick={onClick}
       aria-label={label}
-    >
-      <span className="viper-orb__core" aria-hidden="true" />
-      <span className="viper-orb__rim" aria-hidden="true" />
-    </button>
+    />
   );
 }
