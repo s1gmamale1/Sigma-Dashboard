@@ -156,6 +156,9 @@ def create_app() -> FastAPI:
     from .hq.router import router as hq_router
     app.include_router(hq_router)
 
+    from .hq.actions import router as hq_actions_router
+    app.include_router(hq_actions_router)
+
     dist = Path(settings.frontend_dist_path)
     if dist.exists():
         assets = dist / "assets"

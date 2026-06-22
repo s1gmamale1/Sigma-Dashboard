@@ -1710,7 +1710,7 @@
           "Attendance"
         ],
         "summary": "Import attendance from the HR sheet now",
-        "description": "Pull the wide `Sigma Attendnace` tab into the dashboard immediately \u2014 the same job the\ndaily 19:00 Asia/Tashkent auto-sync runs. Returns the recorded sync run (status + summary).",
+        "description": "Pull the wide `Sigma Attendnace` tab into the dashboard immediately \u2014 the same job the\nauto-sync loop runs on its interval. Accepts either an admin/manager JWT or the Viper\ningest token (`X-Viper-Token`), so the ingest agent can refresh History right after it\nwrites the sheet. Returns the recorded sync run (status + summary).",
         "operationId": "import_attendance_sheet_now_api_v1_attendance_import_sheet_post",
         "responses": {
           "200": {
@@ -1724,7 +1724,17 @@
             }
           },
           "401": {
-            "description": "Missing or invalid admin bearer token.",
+            "description": "Missing or invalid credentials (edit-capable admin bearer token or `X-Viper-Token`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Account is read-only (edit-capable JWT or `X-Viper-Token` required).",
             "content": {
               "application/json": {
                 "schema": {
@@ -1735,6 +1745,9 @@
           }
         },
         "security": [
+          {
+            "APIKeyHeader": []
+          },
           {
             "HTTPBearer": []
           }
@@ -2328,6 +2341,294 @@
           }
         ]
       }
+    },
+    "/api/v1/hq/overview": {
+      "get": {
+        "tags": [
+          "HQ"
+        ],
+        "summary": "Fleet overview",
+        "description": "Aggregated counts + per-source health for the whole fleet.",
+        "operationId": "hq_overview_api_v1_hq_overview_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_Overview_"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid admin bearer token."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/hq/workers": {
+      "get": {
+        "tags": [
+          "HQ"
+        ],
+        "summary": "Workers / agents",
+        "operationId": "hq_workers_api_v1_hq_workers_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_list_Worker__"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid admin bearer token."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/hq/sessions": {
+      "get": {
+        "tags": [
+          "HQ"
+        ],
+        "summary": "Active sessions",
+        "operationId": "hq_sessions_api_v1_hq_sessions_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_list_Session__"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid admin bearer token."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/hq/swarms": {
+      "get": {
+        "tags": [
+          "HQ"
+        ],
+        "summary": "Swarms",
+        "operationId": "hq_swarms_api_v1_hq_swarms_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_list_Swarm__"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid admin bearer token."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/hq/projects": {
+      "get": {
+        "tags": [
+          "HQ"
+        ],
+        "summary": "Projects",
+        "operationId": "hq_projects_api_v1_hq_projects_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_list_Project__"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid admin bearer token."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/hq/tasks": {
+      "get": {
+        "tags": [
+          "HQ"
+        ],
+        "summary": "Tasks",
+        "operationId": "hq_tasks_api_v1_hq_tasks_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_list_Task__"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid admin bearer token."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/hq/blockers": {
+      "get": {
+        "tags": [
+          "HQ"
+        ],
+        "summary": "Blockers",
+        "operationId": "hq_blockers_api_v1_hq_blockers_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_list_Blocker__"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid admin bearer token."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/hq/heartbeats": {
+      "get": {
+        "tags": [
+          "HQ"
+        ],
+        "summary": "Heartbeats / staleness",
+        "operationId": "hq_heartbeats_api_v1_hq_heartbeats_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Envelope_list_Heartbeat__"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid admin bearer token."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/hq/actions/{action}": {
+      "post": {
+        "tags": [
+          "HQ"
+        ],
+        "summary": "Control action (disabled in MVP)",
+        "description": "Always refuses in the MVP. Order: feature-flag gate \u2192 sign-off gate \u2192 501.",
+        "operationId": "hq_action_api_v1_hq_actions__action__post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Action"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "null",
+                  "title": "Response Hq Action Api V1 Hq Actions  Action  Post"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Actions disabled, or sign-off header missing."
+          },
+          "501": {
+            "description": "Action recognized but not implemented (read-only MVP)."
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2337,6 +2638,12 @@
           "run_id": {
             "type": "string",
             "title": "Run Id"
+          },
+          "session": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]{1,48}$",
+            "title": "Session",
+            "default": "dashboard"
           }
         },
         "additionalProperties": false,
@@ -2518,6 +2825,88 @@
         ],
         "title": "AttendanceOut"
       },
+      "Blocker": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "source_id": {
+            "type": "string",
+            "title": "Source Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/Severity",
+            "default": "medium"
+          },
+          "entity_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Type"
+          },
+          "entity_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Id"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "open"
+          },
+          "opened_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opened At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source",
+          "source_id",
+          "title"
+        ],
+        "title": "Blocker"
+      },
       "ChangePasswordRequest": {
         "properties": {
           "current_password": {
@@ -2571,6 +2960,12 @@
             "maxLength": 4000,
             "minLength": 1,
             "title": "Message"
+          },
+          "session": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]{1,48}$",
+            "title": "Session",
+            "default": "dashboard"
           }
         },
         "additionalProperties": false,
@@ -2978,6 +3373,38 @@
         "type": "object",
         "title": "Envelope[MeOut]"
       },
+      "Envelope_Overview_": {
+        "properties": {
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Overview"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "meta": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Meta"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Envelope[Overview]"
+      },
       "Envelope_ProjectConditionOut_": {
         "properties": {
           "data": {
@@ -3210,6 +3637,42 @@
         "type": "object",
         "title": "Envelope[list[AttendanceOut]]"
       },
+      "Envelope_list_Blocker__": {
+        "properties": {
+          "data": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/Blocker"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          },
+          "meta": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Meta"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Envelope[list[Blocker]]"
+      },
       "Envelope_list_EvaluationOut__": {
         "properties": {
           "data": {
@@ -3318,6 +3781,42 @@
         "type": "object",
         "title": "Envelope[list[GoalOut]]"
       },
+      "Envelope_list_Heartbeat__": {
+        "properties": {
+          "data": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/Heartbeat"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          },
+          "meta": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Meta"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Envelope[list[Heartbeat]]"
+      },
       "Envelope_list_PerformanceRow__": {
         "properties": {
           "data": {
@@ -3390,6 +3889,42 @@
         "type": "object",
         "title": "Envelope[list[ProjectConditionOut]]"
       },
+      "Envelope_list_Project__": {
+        "properties": {
+          "data": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/Project"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          },
+          "meta": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Meta"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Envelope[list[Project]]"
+      },
       "Envelope_list_ReportOut__": {
         "properties": {
           "data": {
@@ -3425,6 +3960,114 @@
         "additionalProperties": false,
         "type": "object",
         "title": "Envelope[list[ReportOut]]"
+      },
+      "Envelope_list_Session__": {
+        "properties": {
+          "data": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/Session"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          },
+          "meta": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Meta"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Envelope[list[Session]]"
+      },
+      "Envelope_list_Swarm__": {
+        "properties": {
+          "data": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/Swarm"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          },
+          "meta": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Meta"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Envelope[list[Swarm]]"
+      },
+      "Envelope_list_Task__": {
+        "properties": {
+          "data": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/Task"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          },
+          "meta": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Meta"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Envelope[list[Task]]"
       },
       "Envelope_list_UserOut__": {
         "properties": {
@@ -3497,6 +4140,42 @@
         "additionalProperties": false,
         "type": "object",
         "title": "Envelope[list[WeeklySummaryRow]]"
+      },
+      "Envelope_list_Worker__": {
+        "properties": {
+          "data": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/Worker"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data"
+          },
+          "meta": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Meta"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Envelope[list[Worker]]"
       },
       "ErrorBody": {
         "properties": {
@@ -3891,6 +4570,57 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "Heartbeat": {
+        "properties": {
+          "entity_type": {
+            "type": "string",
+            "title": "Entity Type"
+          },
+          "entity_id": {
+            "type": "string",
+            "title": "Entity Id"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "ts": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ts"
+          },
+          "staleness_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Staleness Seconds"
+          },
+          "healthy": {
+            "type": "boolean",
+            "title": "Healthy",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "entity_type",
+          "entity_id",
+          "source"
+        ],
+        "title": "Heartbeat"
+      },
       "IdResult": {
         "properties": {
           "id": {
@@ -4031,6 +4761,73 @@
         ],
         "title": "MeOut",
         "description": "The signed-in user plus the role's permission map (drives frontend gating)."
+      },
+      "Overview": {
+        "properties": {
+          "workers_total": {
+            "type": "integer",
+            "title": "Workers Total"
+          },
+          "workers_running": {
+            "type": "integer",
+            "title": "Workers Running"
+          },
+          "workers_blocked": {
+            "type": "integer",
+            "title": "Workers Blocked"
+          },
+          "workers_offline": {
+            "type": "integer",
+            "title": "Workers Offline"
+          },
+          "sessions_active": {
+            "type": "integer",
+            "title": "Sessions Active"
+          },
+          "swarms_active": {
+            "type": "integer",
+            "title": "Swarms Active"
+          },
+          "tasks_open": {
+            "type": "integer",
+            "title": "Tasks Open"
+          },
+          "tasks_blocked": {
+            "type": "integer",
+            "title": "Tasks Blocked"
+          },
+          "blockers_open": {
+            "type": "integer",
+            "title": "Blockers Open"
+          },
+          "sources": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "type": "object",
+            "title": "Sources"
+          },
+          "generated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Generated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "workers_total",
+          "workers_running",
+          "workers_blocked",
+          "workers_offline",
+          "sessions_active",
+          "swarms_active",
+          "tasks_open",
+          "tasks_blocked",
+          "blockers_open",
+          "sources",
+          "generated_at"
+        ],
+        "title": "Overview"
       },
       "PerformanceRow": {
         "properties": {
@@ -4206,6 +5003,84 @@
           "sort_order"
         ],
         "title": "PersonOut"
+      },
+      "Project": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "source_id": {
+            "type": "string",
+            "title": "Source Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "repo_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Repo Path"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source",
+          "source_id",
+          "name",
+          "slug"
+        ],
+        "title": "Project"
       },
       "ProjectConditionOut": {
         "properties": {
@@ -4590,10 +5465,118 @@
         ],
         "title": "ResetPasswordRequest"
       },
+      "Session": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "source_id": {
+            "type": "string",
+            "title": "Source Id"
+          },
+          "worker_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Worker Id"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "last_activity": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Activity"
+          },
+          "transcript_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transcript Ref"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source",
+          "source_id"
+        ],
+        "title": "Session"
+      },
+      "Severity": {
+        "type": "string",
+        "enum": [
+          "low",
+          "medium",
+          "high",
+          "critical"
+        ],
+        "title": "Severity"
+      },
       "SheetSyncResult": {
         "properties": {
           "id": {
-            "type": "integer",
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Id"
           },
           "status": {
@@ -4639,11 +5622,198 @@
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "id",
           "status"
         ],
         "title": "SheetSyncResult",
         "description": "Outcome of a Google Sheet attendance sync run."
+      },
+      "Swarm": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "source_id": {
+            "type": "string",
+            "title": "Source Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "topology": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Topology"
+          },
+          "coordinator": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coordinator"
+          },
+          "member_worker_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Member Worker Ids",
+            "default": []
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "last_heartbeat": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Heartbeat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source",
+          "source_id",
+          "name"
+        ],
+        "title": "Swarm"
+      },
+      "Task": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "source_id": {
+            "type": "string",
+            "title": "Source Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
+          },
+          "assignee_worker_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignee Worker Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/TaskStatus",
+            "default": "todo"
+          },
+          "priority": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Priority"
+          },
+          "blocker_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Blocker Ids",
+            "default": []
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source",
+          "source_id",
+          "title"
+        ],
+        "title": "Task"
+      },
+      "TaskStatus": {
+        "type": "string",
+        "enum": [
+          "todo",
+          "in_progress",
+          "review",
+          "done",
+          "blocked"
+        ],
+        "title": "TaskStatus"
       },
       "UserCreate": {
         "properties": {
@@ -5330,6 +6500,131 @@
           "absent"
         ],
         "title": "WeeklySummaryRow"
+      },
+      "Worker": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "source_id": {
+            "type": "string",
+            "title": "Source Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner"
+          },
+          "status": {
+            "$ref": "#/components/schemas/WorkerStatus",
+            "default": "offline"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project Id"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id"
+          },
+          "task_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Id"
+          },
+          "worktree_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Worktree Path"
+          },
+          "last_heartbeat": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Heartbeat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "source",
+          "source_id",
+          "name",
+          "kind"
+        ],
+        "title": "Worker"
+      },
+      "WorkerStatus": {
+        "type": "string",
+        "enum": [
+          "idle",
+          "running",
+          "blocked",
+          "offline"
+        ],
+        "title": "WorkerStatus"
       }
     },
     "securitySchemes": {
@@ -5386,6 +6681,10 @@
     {
       "name": "Google Sheets",
       "description": "Preview, import, and sync the HR attendance spreadsheet."
+    },
+    {
+      "name": "HQ",
+      "description": "Read-only Sigma workforce control plane \u2014 projects, tasks, workers, sessions, swarms, heartbeats, and blockers aggregated from SigmaControl/SigmaLink."
     }
   ]
 }
