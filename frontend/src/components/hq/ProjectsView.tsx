@@ -68,7 +68,7 @@ export function ProjectsView({
             })}
           </div>
         ) : (
-          <EmptyState title="No tasks reported" />
+          <EmptyState title="No live task source yet — tasks are spec-only (SigmaControl exposes no task read API)" />
         )}
       </Card>
     </section>

@@ -86,6 +86,18 @@ def test_missing_file_and_env_returns_none(tmp_path, monkeypatch) -> None:
     assert resolve_control_creds(_settings(str(tmp_path / "nope"))) is None
 
 
+def test_resolve_expands_tilde_path(tmp_path, monkeypatch) -> None:
+    for k in ("SIGMA_CONTROL_SOCKET", "SIGMA_CONTROL_TOKEN", "SIGMA_CONTROL_LABEL"):
+        monkeypatch.delenv(k, raising=False)
+    home = tmp_path / "home"
+    (home / ".hermes").mkdir(parents=True)
+    (home / ".hermes" / ".credentials").write_text(CREDS)
+    monkeypatch.setenv("HOME", str(home))
+    creds = resolve_control_creds(_settings("~/.hermes/.credentials"))
+    assert creds is not None
+    assert creds.socket_path.endswith("/SigmaLink/control.sock")
+
+
 def test_token_not_in_repr(tmp_path, monkeypatch) -> None:
     for k in ("SIGMA_CONTROL_SOCKET", "SIGMA_CONTROL_TOKEN", "SIGMA_CONTROL_LABEL"):
         monkeypatch.delenv(k, raising=False)

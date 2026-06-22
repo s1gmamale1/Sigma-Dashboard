@@ -58,7 +58,7 @@ def resolve_control_creds(settings: Any) -> ControlCreds | None:
     path = getattr(settings, "hq_control_creds_path", None)
     if path:
         try:
-            file_vals = parse_env_file(Path(path).read_text(encoding="utf-8"))
+            file_vals = parse_env_file(Path(path).expanduser().read_text(encoding="utf-8"))
         except (FileNotFoundError, IsADirectoryError, PermissionError, OSError):
             file_vals = {}
 

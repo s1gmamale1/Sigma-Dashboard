@@ -50,7 +50,13 @@ class Settings(BaseSettings):
     hq_sigmalink_socket: str | None = None
     hq_sigmalink_token: str | None = None
     hq_sigmalink_label: str = "sigma-hq"
-    hq_control_creds_path: str | None = None
+    # Pointer (NOT a secret) to the hermes credentials file supplying the
+    # SigmaControl socket + token. Defaulting here activates live SigmaLink once
+    # this branch is deployed + the service restarts; the token is read at fetch
+    # time and never stored in Settings/logs/responses. Absent file → source
+    # degrades to mock-labeled (safe). Override via SIGMA_HQ_CONTROL_CREDS_PATH;
+    # set to "" to disable file resolution.
+    hq_control_creds_path: str | None = "~/.hermes/.credentials"
     control_socket: str | None = None
     control_token: str | None = None
     # Include the mock source so the HQ tab is never empty pre-integration. Mock

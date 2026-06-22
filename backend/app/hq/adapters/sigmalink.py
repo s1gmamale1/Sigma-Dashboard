@@ -13,6 +13,7 @@ schema are confirmed — see plan Blocker #1.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 from backend.app.hq.adapters.base import (
@@ -23,14 +24,25 @@ from backend.app.hq.adapters.base import (
 )
 from backend.app.hq.adapters.control_socket import ControlSocketError, make_control_socket_client
 from backend.app.hq.models import (
+    Blocker,
     Project,
     Session,
+    Severity,
     Snapshot,
     Swarm,
     Worker,
     WorkerStatus,
     make_id,
 )
+
+# SigmaLink notification-center severities that count as actionable HQ blockers.
+# "info" (e.g. clean pane exits) is intentionally excluded.
+_ALERT_SEVERITY = {
+    "critical": Severity.critical,
+    "error": Severity.high,
+    "warning": Severity.medium,
+    "warn": Severity.medium,
+}
 
 NAME = "sigmalink"
 
@@ -83,9 +95,18 @@ class SigmaLinkAdapter:
             ) as client:
                 workspaces = client.invoke("list_workspaces").get("workspaces", [])
                 sessions = client.invoke("list_active_sessions").get("sessions", [])
+                # Blockers/alerts are best-effort: a get_app_state failure must not
+                # sink the (already-fetched) workers/sessions/projects.
+                notifications: list[Any] = []
+                try:
+                    app_state = client.invoke("get_app_state") or {}
+                    state = app_state.get("state") or {}
+                    notifications = (state.get("notifications") or {}).get("recent") or []
+                except Exception:  # noqa: BLE001 — blockers degrade quietly
+                    notifications = []
         except (ControlSocketError, OSError):
             return None
-        return {"workspaces": workspaces, "sessions": sessions}
+        return {"workspaces": workspaces, "sessions": sessions, "notifications": notifications}
 
     def healthy(self) -> bool:
         return self._load() is not None or self._load_live() is not None
@@ -248,6 +269,8 @@ def _snapshot_from_state(data: dict[str, Any], now) -> Snapshot:
             )
         )
 
+    blockers = _notifications_to_blockers(data.get("notifications") or [], now)
+
     return Snapshot(
         source=NAME,
         healthy=True,
@@ -256,7 +279,55 @@ def _snapshot_from_state(data: dict[str, Any], now) -> Snapshot:
         workers=workers,
         sessions=sessions,
         swarms=swarms,
+        blockers=blockers,
     )
+
+
+def _ms_to_dt(value: Any) -> datetime | None:
+    """SigmaLink timestamps are epoch milliseconds; tolerate seconds too."""
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return None
+    if v > 1e12:  # milliseconds
+        v = v / 1000.0
+    try:
+        return datetime.utcfromtimestamp(v)
+    except (OverflowError, OSError, ValueError):
+        return None
+
+
+def _notifications_to_blockers(notifs: list[Any], now: datetime) -> list[Blocker]:
+    """Map actionable notification-center entries to HQ blockers/alerts.
+
+    Real live data from ``get_app_state.state.notifications.recent`` — only
+    error/warning/critical severities become blockers; info is dropped.
+    """
+    out: list[Blocker] = []
+    for raw in notifs:
+        if not isinstance(raw, dict):
+            continue
+        sev = _ALERT_SEVERITY.get(str(raw.get("severity", "")).lower())
+        if sev is None:
+            continue
+        rec = scrub(raw)
+        nid = rec.get("id") or rec.get("createdAt")
+        if nid is None:
+            continue
+        out.append(
+            Blocker(
+                id=_gid(nid),
+                source=NAME,
+                source_id=str(nid),
+                title=str(_first(rec, "title", "kind") or "alert"),
+                severity=sev,
+                entity_type="alert",
+                entity_id=_opt_gid(_first(rec, "workspaceId")),
+                status="open" if rec.get("readAt") in (None, "", 0) else "resolved",
+                opened_at=_ms_to_dt(rec.get("createdAt")),
+            )
+        )
+    return out
 
 
 def _opt_str(value: Any) -> str | None:
