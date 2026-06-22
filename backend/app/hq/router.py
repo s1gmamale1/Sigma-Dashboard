@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends
 from backend.app.auth import require_view
 from backend.app.config import Settings, get_settings
 from backend.app.hq.adapters.base import ControlPlaneSource
+from backend.app.hq.adapters.control_creds import resolve_control_creds
 from backend.app.hq.adapters.mock import MockAdapter
 from backend.app.hq.adapters.sigmacontrol import SigmaControlAdapter
 from backend.app.hq.adapters.sigmalink import SigmaLinkAdapter
@@ -37,9 +38,20 @@ UNAUTHORIZED = {401: {"description": "Missing or invalid admin bearer token."}}
 
 
 def build_sources(settings: Settings) -> list[ControlPlaneSource]:
+    sigmalink_creds = resolve_control_creds(settings)
+    sigmalink_socket = (
+        sigmalink_creds.socket_path if sigmalink_creds else settings.control_socket
+    )
+    sigmalink_token = sigmalink_creds.token if sigmalink_creds else settings.control_token
+    sigmalink_label = sigmalink_creds.label if sigmalink_creds else settings.hq_sigmalink_label
     sources: list[ControlPlaneSource] = [
         SigmaControlAdapter(settings.hq_sigmacontrol_state),
-        SigmaLinkAdapter(settings.hq_sigmalink_state),
+        SigmaLinkAdapter(
+            settings.hq_sigmalink_state,
+            socket_path=sigmalink_socket,
+            token=sigmalink_token,
+            label=sigmalink_label,
+        ),
     ]
     if settings.hq_use_mock:
         sources.append(MockAdapter())

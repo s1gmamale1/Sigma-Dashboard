@@ -21,7 +21,9 @@ from backend.app.hq.adapters.base import (
     scrub,
     utcnow_naive,
 )
+from backend.app.hq.adapters.control_socket import ControlSocketError, make_control_socket_client
 from backend.app.hq.models import (
+    Project,
     Session,
     Snapshot,
     Swarm,
@@ -54,103 +56,207 @@ def _gid(source_id: Any) -> str:
 class SigmaLinkAdapter:
     name = NAME
 
-    def __init__(self, state_path: str | None) -> None:
+    def __init__(
+        self,
+        state_path: str | None,
+        *,
+        socket_path: str | None = None,
+        token: str | None = None,
+        label: str = "sigma-hq",
+    ) -> None:
         self._state_path = state_path
+        self._socket_path = socket_path
+        self._token = token
+        self._label = label
 
     def _load(self) -> dict[str, Any] | None:
         return load_json_state(self._state_path)
 
+    def _load_live(self) -> dict[str, Any] | None:
+        if not self._socket_path or not self._token:
+            return None
+        try:
+            with make_control_socket_client(
+                self._socket_path,
+                self._token,
+                label=self._label,
+            ) as client:
+                workspaces = client.invoke("list_workspaces").get("workspaces", [])
+                sessions = client.invoke("list_active_sessions").get("sessions", [])
+        except (ControlSocketError, OSError):
+            return None
+        return {"workspaces": workspaces, "sessions": sessions}
+
     def healthy(self) -> bool:
-        return self._load() is not None
+        return self._load() is not None or self._load_live() is not None
 
     def fetch_snapshot(self) -> Snapshot:
         now = utcnow_naive()
         data = self._load()
         if data is None:
+            data = self._load_live()
+        if data is None:
             return Snapshot(source=NAME, healthy=False, fetched_at=now)
 
-        workers: list[Worker] = []
-        for raw in data.get("lanes", []) or []:
-            if not isinstance(raw, dict):
-                continue
-            rec = scrub(raw)
-            sid = _first(rec, "id", "lane_id", "name")
-            if sid is None:
-                continue
+        return _snapshot_from_state(data, now)
+
+
+def _snapshot_from_state(data: dict[str, Any], now) -> Snapshot:
+    projects: list[Project] = []
+    for raw in data.get("workspaces", []) or []:
+        if not isinstance(raw, dict):
+            continue
+        rec = scrub(raw)
+        sid = _first(rec, "id", "workspaceId", "rootPath", "name")
+        if sid is None:
+            continue
+        active = bool(_first(rec, "active"))
+        projects.append(
+            Project(
+                id=_gid(sid),
+                source=NAME,
+                source_id=str(sid),
+                name=str(_first(rec, "name", "id") or sid),
+                slug=str(_first(rec, "name", "id") or sid),
+                status="active" if active else "open",
+                repo_path=_opt_str(_first(rec, "rootPath", "repo_path", "path")),
+                updated_at=now,
+            )
+        )
+
+    workers: list[Worker] = []
+    sessions: list[Session] = []
+    worker_ids_by_swarm: dict[str, list[str]] = {}
+
+    # Live External Control reports panes as sessions. Treat every pane as a
+    # session; agent panes also become workers. Shell panes are preserved only as
+    # sessions so the UI does not inflate the agent roster with terminals.
+    for raw in data.get("sessions", []) or []:
+        if not isinstance(raw, dict):
+            continue
+        rec = scrub(raw)
+        sid = _first(rec, "sessionId", "id", "session_id")
+        if sid is None:
+            continue
+        provider = _opt_str(_first(rec, "provider", "model", "cli"))
+        status = _opt_str(_first(rec, "status")) or "running"
+        worker_source_id = _first(rec, "agentKey", "worker_id", "lane_id", "lane") or sid
+        worker_id = _gid(worker_source_id)
+        is_agent = provider != "shell"
+        if is_agent:
             workers.append(
                 Worker(
-                    id=_gid(sid),
+                    id=worker_id,
                     source=NAME,
-                    source_id=str(sid),
-                    name=str(_first(rec, "name", "id") or sid),
-                    kind=str(_first(rec, "kind") or "agent"),
-                    model=_opt_str(_first(rec, "model", "cli")),
-                    owner=_opt_str(_first(rec, "owner")),
-                    status=_worker_status(_first(rec, "status")),
-                    project_id=_opt_gid(_first(rec, "project_id", "project")),
-                    session_id=_opt_gid(_first(rec, "session_id", "session")),
-                    task_id=_opt_gid(_first(rec, "task_id", "task")),
-                    worktree_path=_opt_str(_first(rec, "worktree_path", "worktree", "path")),
-                    last_heartbeat=parse_dt(
-                        _first(rec, "last_heartbeat", "last_activity", "heartbeat", "updated_at")
-                    ),
+                    source_id=str(worker_source_id),
+                    name=str(_first(rec, "name", "agentKey", "sessionId") or worker_source_id),
+                    kind="agent",
+                    model=provider,
+                    status=_worker_status(status),
+                    session_id=_gid(sid),
+                    last_heartbeat=now,
                 )
             )
-
-        sessions: list[Session] = []
-        for raw in data.get("sessions", []) or []:
-            if not isinstance(raw, dict):
-                continue
-            rec = scrub(raw)
-            sid = _first(rec, "id", "session_id")
-            if sid is None:
-                continue
-            sessions.append(
-                Session(
-                    id=_gid(sid),
-                    source=NAME,
-                    source_id=str(sid),
-                    worker_id=_opt_gid(_first(rec, "worker_id", "lane_id", "lane")),
-                    project_id=_opt_gid(_first(rec, "project_id", "project")),
-                    status=_opt_str(_first(rec, "status")),
-                    started_at=parse_dt(_first(rec, "started_at", "created_at")),
-                    last_activity=parse_dt(_first(rec, "last_activity", "updated_at")),
-                    transcript_ref=_opt_str(_first(rec, "transcript_ref", "transcript")),
-                )
+        sessions.append(
+            Session(
+                id=_gid(sid),
+                source=NAME,
+                source_id=str(sid),
+                worker_id=worker_id if is_agent else None,
+                status=status,
+                started_at=parse_dt(_first(rec, "started_at", "created_at")),
+                last_activity=parse_dt(_first(rec, "last_activity", "updated_at")) or now,
+                transcript_ref=str(sid),
             )
-
-        swarms: list[Swarm] = []
-        for raw in data.get("swarms", []) or []:
-            if not isinstance(raw, dict):
-                continue
-            rec = scrub(raw)
-            sid = _first(rec, "id", "swarm_id", "name")
-            if sid is None:
-                continue
-            members = _first(rec, "member_worker_ids", "members") or []
-            swarms.append(
-                Swarm(
-                    id=_gid(sid),
-                    source=NAME,
-                    source_id=str(sid),
-                    name=str(_first(rec, "name", "id") or sid),
-                    topology=_opt_str(_first(rec, "topology")),
-                    coordinator=_opt_gid(_first(rec, "coordinator")),
-                    member_worker_ids=[_gid(m) for m in members if m is not None],
-                    project_id=_opt_gid(_first(rec, "project_id", "project")),
-                    status=_opt_str(_first(rec, "status")),
-                    last_heartbeat=parse_dt(_first(rec, "last_heartbeat", "updated_at")),
-                )
-            )
-
-        return Snapshot(
-            source=NAME,
-            healthy=True,
-            fetched_at=now,
-            workers=workers,
-            sessions=sessions,
-            swarms=swarms,
         )
+        swarm_id = _first(rec, "swarmId", "swarm_id")
+        if swarm_id is not None and is_agent:
+            worker_ids_by_swarm.setdefault(str(swarm_id), []).append(worker_id)
+
+    # Legacy/file-state lanes remain supported for the pre-existing JSON adapter
+    # contract. Avoid duplicating live workers already created from sessions.
+    seen_workers = {w.id for w in workers}
+    for raw in data.get("lanes", []) or []:
+        if not isinstance(raw, dict):
+            continue
+        rec = scrub(raw)
+        sid = _first(rec, "id", "lane_id", "name")
+        if sid is None:
+            continue
+        wid = _gid(sid)
+        if wid in seen_workers:
+            continue
+        workers.append(
+            Worker(
+                id=wid,
+                source=NAME,
+                source_id=str(sid),
+                name=str(_first(rec, "name", "id") or sid),
+                kind=str(_first(rec, "kind") or "agent"),
+                model=_opt_str(_first(rec, "model", "cli")),
+                owner=_opt_str(_first(rec, "owner")),
+                status=_worker_status(_first(rec, "status")),
+                project_id=_opt_gid(_first(rec, "project_id", "project")),
+                session_id=_opt_gid(_first(rec, "session_id", "session")),
+                task_id=_opt_gid(_first(rec, "task_id", "task")),
+                worktree_path=_opt_str(_first(rec, "worktree_path", "worktree", "path")),
+                last_heartbeat=parse_dt(
+                    _first(rec, "last_heartbeat", "last_activity", "heartbeat", "updated_at")
+                ),
+            )
+        )
+
+    swarms: list[Swarm] = []
+    seen_swarms: set[str] = set()
+    for sid, members in worker_ids_by_swarm.items():
+        swarms.append(
+            Swarm(
+                id=_gid(sid),
+                source=NAME,
+                source_id=sid,
+                name=sid,
+                member_worker_ids=members,
+                status="running",
+                last_heartbeat=now,
+            )
+        )
+        seen_swarms.add(_gid(sid))
+
+    for raw in data.get("swarms", []) or []:
+        if not isinstance(raw, dict):
+            continue
+        rec = scrub(raw)
+        sid = _first(rec, "id", "swarm_id", "name")
+        if sid is None:
+            continue
+        gid = _gid(sid)
+        if gid in seen_swarms:
+            continue
+        members = _first(rec, "member_worker_ids", "members") or []
+        swarms.append(
+            Swarm(
+                id=gid,
+                source=NAME,
+                source_id=str(sid),
+                name=str(_first(rec, "name", "id") or sid),
+                topology=_opt_str(_first(rec, "topology")),
+                coordinator=_opt_gid(_first(rec, "coordinator")),
+                member_worker_ids=[_gid(m) for m in members if m is not None],
+                project_id=_opt_gid(_first(rec, "project_id", "project")),
+                status=_opt_str(_first(rec, "status")),
+                last_heartbeat=parse_dt(_first(rec, "last_heartbeat", "updated_at")),
+            )
+        )
+
+    return Snapshot(
+        source=NAME,
+        healthy=True,
+        fetched_at=now,
+        projects=projects,
+        workers=workers,
+        sessions=sessions,
+        swarms=swarms,
+    )
 
 
 def _opt_str(value: Any) -> str | None:

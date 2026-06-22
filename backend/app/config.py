@@ -44,6 +44,15 @@ class Settings(BaseSettings):
     # labeled sample data until the real source path + schema are confirmed.
     hq_sigmacontrol_state: str | None = None
     hq_sigmalink_state: str | None = None
+    # Live SigmaLink External Control socket. Prefer SIGMA_HQ_SIGMALINK_SOCKET /
+    # SIGMA_HQ_SIGMALINK_TOKEN for the dashboard process; it also falls back to
+    # SIGMA_CONTROL_SOCKET / SIGMA_CONTROL_TOKEN for local operator runs.
+    hq_sigmalink_socket: str | None = None
+    hq_sigmalink_token: str | None = None
+    hq_sigmalink_label: str = "sigma-hq"
+    hq_control_creds_path: str | None = None
+    control_socket: str | None = None
+    control_token: str | None = None
     # Include the mock source so the HQ tab is never empty pre-integration. Mock
     # rows are visibly labeled in the UI; set SIGMA_HQ_USE_MOCK=false once live
     # sources are wired and confirmed.

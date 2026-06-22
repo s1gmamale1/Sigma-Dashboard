@@ -54,6 +54,64 @@ def test_lanes_map_to_workers_and_scrub_secrets(tmp_path) -> None:
     assert "LEAKED-SECRET" not in json.dumps(snap.model_dump(), default=str)
 
 
+def test_live_socket_payload_maps_workspaces_sessions_and_swarms(monkeypatch) -> None:
+    class FakeClient:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_exc):
+            return None
+
+        def invoke(self, name):
+            if name == "list_workspaces":
+                return {
+                    "workspaces": [
+                        {
+                            "id": "ws-1",
+                            "name": "SigmaDevelopment",
+                            "rootPath": "/repo",
+                            "active": True,
+                        }
+                    ]
+                }
+            if name == "list_active_sessions":
+                return {
+                    "sessions": [
+                        {
+                            "sessionId": "s-agent",
+                            "name": "Sage",
+                            "provider": "claude",
+                            "status": "running",
+                            "agentKey": "builder-6",
+                            "swarmId": "swarm-1",
+                        },
+                        {
+                            "sessionId": "s-shell",
+                            "name": "Shell",
+                            "provider": "shell",
+                            "status": "running",
+                        },
+                    ]
+                }
+            raise AssertionError(name)
+
+    monkeypatch.setattr(
+        "backend.app.hq.adapters.sigmalink.make_control_socket_client",
+        lambda *_a, **_kw: FakeClient(),
+    )
+    snap = SigmaLinkAdapter(None, socket_path="/sock", token="secret").fetch_snapshot()
+    assert snap.healthy is True
+    assert [p.id for p in snap.projects] == ["sigmalink:ws-1"]
+    assert [w.id for w in snap.workers] == ["sigmalink:builder-6"]
+    assert {s.id: s.worker_id for s in snap.sessions} == {
+        "sigmalink:s-agent": "sigmalink:builder-6",
+        "sigmalink:s-shell": None,
+    }
+    assert snap.swarms[0].id == "sigmalink:swarm-1"
+    assert snap.swarms[0].member_worker_ids == ["sigmalink:builder-6"]
+    assert "secret" not in json.dumps(snap.model_dump(), default=str)
+
+
 def test_unknown_status_falls_back_to_offline(tmp_path) -> None:
     p = tmp_path / "state.json"
     p.write_text(json.dumps({"lanes": [{"id": "l2", "name": "x", "status": "weird"}]}))
