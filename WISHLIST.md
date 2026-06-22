@@ -139,3 +139,41 @@ _(raw ideas land here; promote to ROADMAP.md once scoped into a phase)_
   on `uq_attendance_person_shift` → `IntegrityError` (500/400 on the dashboard path, which lacks the
   never-raise handling). Fix needs a shared lock across both writers (e.g. move `_import_lock` to a neutral
   module and wrap the dashboard attendance-write section). Its own PR — touches `google_sheets.py`. Effort: M.
+
+## 🔬 HQ control plane — deferred items (2026-06-23)
+
+> Branch `feat/hq-control-plane` (worktree `/Users/aisigma/sigma-dashboard-hq`), unmerged/unpushed.
+> From building SigmaLink-live (socket) + live blockers and the two-stage review.
+
+### 🚫 Deferred by design (need sign-off / no live source)
+
+- 🚫 **[actions] HQ control/write actions stay 403/501 pending Leo sign-off** — real socket tools exist
+  (`stop_pane`, `close_pane`, `prompt_agent`, `send_keys`, `kill_swarm`, `create_task`) behind SigmaLink's
+  supervised-autonomy authz (`free|escalate|deny` + killSwitch). Enabling control touches LIVE production
+  agents → needs an explicit signed, whitelisted, escalation-aware action path + sign-off before any wiring.
+  `backend/app/hq/actions.py`. Build when Leo signs off the control scope.
+- 🚫 **[tasks] SigmaControl tasks/blockers have no live READ API** — only `create_task` (write);
+  `get_app_state` carries no kanban. Tasks stay spec-only (UI-labeled "no live task source") until a read
+  API exists. `backend/app/hq/adapters/sigmacontrol.py`.
+
+### Optimizations / cleanups
+
+- 🐞 **[low] SigmaLink worker dedup** — the session loop appends a Worker per agent-session with no dedup by
+  id; two sessions sharing an `agentKey` produce duplicate worker entries (agentKeys unique in practice).
+  `backend/app/hq/adapters/sigmalink.py` (`_snapshot_from_state` session loop). Effort: S.
+- ⚙️ **[low] configurable socket timeout** — `UnixSocketTransport` timeout hardcoded 2s; promote to a setting.
+  `backend/app/hq/adapters/control_socket.py`. Effort: S.
+- ⚙️ **[note] real per-agent heartbeat** — live entities use `last_heartbeat=fetched_at` (liveness = "in the
+  active list now"), not real activity; a hung-but-listed agent reads fresh.
+  `backend/app/hq/adapters/sigmalink.py`. Effort: M.
+- 🧹 **[low] file-vs-live precedence doc** — SigmaLink adapter tries the JSON state file before the live
+  socket; document that file = explicit override, live = default. `backend/app/hq/adapters/sigmalink.py`
+  (`fetch_snapshot`). Effort: S.
+- 🧹 **[note] blocker/alert noise** — `get_app_state.notifications` includes transient/caller-induced
+  tool-errors; consider filtering by kind/age/unread. The feed is app/current-view scoped, not whole-fleet.
+  `backend/app/hq/adapters/sigmalink.py` (`_notifications_to_blockers`). Effort: M.
+
+### Merge hygiene
+
+- 🧹 **[low] squash duplicate commit** — `8b09537` + `0d7c1c6` both implement "adapter protocol + mock"
+  (interruption artifact); squash at merge.
