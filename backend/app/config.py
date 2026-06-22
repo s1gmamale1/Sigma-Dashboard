@@ -37,6 +37,24 @@ class Settings(BaseSettings):
     assistant_enabled: bool = False
     assistant_idle_timeout_s: float = 120.0
 
+    # --- HQ control plane (read-only MVP) ---
+    # Paths to upstream state files (env only: SIGMA_HQ_SIGMACONTROL_STATE /
+    # SIGMA_HQ_SIGMALINK_STATE). Unset/missing → that source reports unhealthy and
+    # contributes nothing; the mock source then keeps the UI populated with clearly
+    # labeled sample data until the real source path + schema are confirmed.
+    hq_sigmacontrol_state: str | None = None
+    hq_sigmalink_state: str | None = None
+    # Include the mock source so the HQ tab is never empty pre-integration. Mock
+    # rows are visibly labeled in the UI; set SIGMA_HQ_USE_MOCK=false once live
+    # sources are wired and confirmed.
+    hq_use_mock: bool = True
+    hq_cache_ttl_seconds: int = 5
+    hq_heartbeat_stale_seconds: int = 120
+    # Control/write actions stay OFF by default — read-first, write-later. Even when
+    # enabled they require an explicit X-Sigma-Signoff header and still return 501
+    # (nothing is wired in the MVP).
+    hq_allow_actions: bool = False
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_prefix="SIGMA_",
