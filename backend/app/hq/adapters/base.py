@@ -66,6 +66,26 @@ def parse_dt(value: Any) -> datetime | None:
     return None
 
 
+def load_json_state(path: str | None) -> dict[str, Any] | None:
+    """Read a JSON state file from ``path``, returning its dict or ``None``.
+
+    Returns ``None`` for every failure mode — unset path, missing file,
+    unreadable file, malformed JSON, or a non-object top level — so a degraded
+    or absent source can never raise, only report itself unhealthy.
+    """
+    if not path:
+        return None
+    try:
+        raw = Path(path).read_text(encoding="utf-8")
+    except (FileNotFoundError, IsADirectoryError, PermissionError, OSError):
+        return None
+    try:
+        data = json.loads(raw)
+    except (json.JSONDecodeError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
 @runtime_checkable
 class ControlPlaneSource(Protocol):
     """A read-only upstream the HQ service can pull a snapshot from."""
