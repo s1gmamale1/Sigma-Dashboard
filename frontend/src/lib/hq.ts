@@ -132,6 +132,18 @@ export interface HQActionsStatus {
   actions: HQActionSpec[];
 }
 
+// Result of POST /api/v1/hq/actions/{action}. On dry_run the backend returns
+// status "validated" + would_invoke; on execute it returns "executed" + result.
+export interface HQActionResult {
+  action: string;
+  dry_run: boolean;
+  destructive: boolean;
+  status: string;
+  target_fingerprint?: string;
+  would_invoke?: Record<string, unknown>;
+  result?: Record<string, unknown>;
+}
+
 async function get<T>(path: string, token: string): Promise<HQResult<T>> {
   const { data, meta } = await apiFetchEnvelope<T, HQMeta>(`/api/v1/hq/${path}`, token);
   return { data, meta };
@@ -146,5 +158,26 @@ export const hqApi = {
   tasks: (token: string) => get<HQTask[]>("tasks", token),
   blockers: (token: string) => get<HQBlocker[]>("blockers", token),
   heartbeats: (token: string) => get<HQHeartbeat[]>("heartbeats", token),
-  actionsStatus: (token: string) => get<HQActionsStatus>("actions", token)
+  actionsStatus: (token: string) => get<HQActionsStatus>("actions", token),
+  // Submit a control action. The signoff token is operator-minted out-of-band
+  // (scripts/hq_sign_action.py) and travels only in the X-Sigma-Signoff header —
+  // never persisted, never echoed back. Throws Error(message) on non-2xx.
+  submitAction: async (
+    token: string,
+    action: string,
+    target: Record<string, unknown>,
+    dryRun: boolean,
+    signoff: string
+  ): Promise<HQActionResult> => {
+    const { data } = await apiFetchEnvelope<HQActionResult, HQMeta>(
+      `/api/v1/hq/actions/${encodeURIComponent(action)}`,
+      token,
+      {
+        method: "POST",
+        headers: { "X-Sigma-Signoff": signoff },
+        body: JSON.stringify({ target, dry_run: dryRun })
+      }
+    );
+    return data;
+  }
 };

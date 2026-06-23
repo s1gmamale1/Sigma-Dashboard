@@ -209,6 +209,108 @@
 .hq-control-pill--readonly { color: var(--text-muted, #8e8e93); }
 .hq-control-pill--armed { color: var(--warning, #ff9f0a); }
 
+/* control actions panel */
+.hq-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.hq-actions select {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--separator);
+  border-radius: var(--r-control);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--surface);
+  color: var(--label);
+  font: inherit;
+}
+.hq-actions__hint {
+  font-size: 11px;
+  font-weight: 400;
+}
+.hq-actions__toggle,
+.hq-actions__confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.hq-actions__warn {
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--warning) 12%, transparent);
+  border: 1px solid var(--warning);
+  color: var(--warning);
+}
+.hq-actions__warn--destructive {
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.hq-actions__confirm {
+  margin-top: 6px;
+  font-weight: 400;
+}
+.hq-actions__submit {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.hq-actions__reason {
+  font-size: 12px;
+}
+.hq-actions__result {
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 12px;
+}
+.hq-actions__result pre {
+  margin: 6px 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+.hq-actions__result--ok {
+  background: color-mix(in srgb, var(--hq-live) 12%, transparent);
+  border: 1px solid var(--hq-live);
+}
+.hq-actions__result--error {
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  border: 1px solid var(--danger);
+  color: var(--danger);
+}
+
+/* capability gate chips */
+.hq-gates {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.hq-gate {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+.hq-gate__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--hq-dead);
+}
+.hq-gate--on .hq-gate__dot { background: var(--hq-live); }
+.hq-gate--on { color: var(--hq-live); }
+.hq-gate--off { color: var(--text-muted, #8e8e93); }
+
 @media (max-width: 640px) {
   .hq-row {
     grid-template-columns: 1.5fr 1fr auto;

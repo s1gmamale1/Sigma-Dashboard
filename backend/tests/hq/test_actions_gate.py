@@ -43,7 +43,8 @@ def _client(settings: Settings, executor: FakeExecutor | None = None) -> tuple[T
     app.dependency_overrides[get_db] = lambda: session
     app.dependency_overrides[get_settings] = lambda: settings
     app.dependency_overrides[require_edit] = lambda: "admin"
-    app.dependency_overrides[actions_mod.get_nonce_cache] = lambda: NonceCache()
+    nc = NonceCache()  # one cache per client (mirrors the process-singleton in prod)
+    app.dependency_overrides[actions_mod.get_nonce_cache] = lambda: nc
     app.dependency_overrides[actions_mod.get_action_executor] = lambda: ex
     return TestClient(app), session, ex
 
@@ -173,6 +174,27 @@ def test_destructive_dry_run_allowed_with_flag() -> None:
     assert r.status_code == 200
     assert r.json()["data"]["status"] == "validated"
     assert ex.calls == []  # dry-run never executes, destructive or not
+
+
+def test_gate_rejects_replayed_nonce_over_http() -> None:
+    """Replay rejection must be wired through the HTTP gate, not just verify_signoff()."""
+    client, _, _ = _client(_enabled())
+    target = {"title": "replay me"}
+    hdr = _signoff("create_task", target, "n-http-replay")
+    body = {"target": target, "dry_run": True}
+    assert client.post("/api/v1/hq/actions/create_task", json=body, headers=hdr).status_code == 200
+    # same token again → nonce already consumed → 403
+    assert client.post("/api/v1/hq/actions/create_task", json=body, headers=hdr).status_code == 403
+
+
+def test_gate_rejects_cross_action_retarget_over_http() -> None:
+    """A signoff minted for action A must not authorize action B at the HTTP layer."""
+    client, _, ex = _client(_enabled())
+    target = {"sessionId": "s1", "prompt": "hi"}  # satisfies both read_pane and prompt_agent required
+    hdr = {"X-Sigma-Signoff": mint_signoff(SECRET, "read_pane", target, nonce="n-xaction")}
+    r = client.post("/api/v1/hq/actions/prompt_agent", json={"target": target, "dry_run": True}, headers=hdr)
+    assert r.status_code == 403
+    assert ex.calls == []
 
 
 def test_no_secret_in_response_or_audit() -> None:

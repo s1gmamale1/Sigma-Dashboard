@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Boxes, FolderKanban, OctagonAlert, RefreshCw } from "lucide-react";
+import { AlertTriangle, Boxes, FolderKanban, OctagonAlert, RefreshCw, Sliders } from "lucide-react";
 import { hqApi, type HQHeartbeat, type HQProject } from "../../lib/hq";
 import { parseServerDate } from "../../lib/dates";
 import { EmptyState } from "../EmptyState";
@@ -10,11 +10,13 @@ import { SourceHealth } from "./badges";
 import { FleetView } from "./FleetView";
 import { ProjectsView } from "./ProjectsView";
 import { BlockersView } from "./BlockersView";
+import { ActionsPanel } from "./ActionsPanel";
 
 const SUBTABS: Segment[] = [
   { id: "fleet", label: "Fleet", icon: <Boxes size={16} /> },
   { id: "projects", label: "Projects", icon: <FolderKanban size={16} /> },
-  { id: "blockers", label: "Blockers", icon: <OctagonAlert size={16} /> }
+  { id: "blockers", label: "Blockers", icon: <OctagonAlert size={16} /> },
+  { id: "control", label: "Control", icon: <Sliders size={16} /> }
 ];
 
 const POLL_MS = 10000;
@@ -125,6 +127,9 @@ export function HQPage({ token }: { token: string }) {
       )}
       {sub === "blockers" && (
         <BlockersView blockers={blockers.data?.data ?? []} heartbeats={heartbeats.data?.data ?? []} />
+      )}
+      {sub === "control" && actions.data && (
+        <ActionsPanel token={token} capabilities={actions.data.data} />
       )}
     </div>
   );
