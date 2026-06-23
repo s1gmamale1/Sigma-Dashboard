@@ -7,6 +7,7 @@ import {
   CalendarDays,
   FolderKanban,
   Gauge,
+  LayoutGrid,
   RefreshCw,
   Sheet,
   Target,
@@ -27,16 +28,19 @@ import { UsersView } from "./components/UsersView";
 import { EmptyState } from "./components/EmptyState";
 import { ViewSkeleton } from "./components/ViewSkeleton";
 import { Shell } from "./components/Shell";
+import { HQPage } from "./components/hq/HQPage";
 import { AssistantDock } from "./components/AssistantDock";
 import type { Segment } from "./components/SegmentedControl";
 import type { Me } from "./lib/types";
 
-type Tab = "overview" | "attendance" | "reports" | "performance" | "goals" | "projects" | "sheets" | "users";
+type Tab = "overview" | "hq" | "attendance" | "reports" | "performance" | "goals" | "projects" | "sheets" | "users";
 
 // Each tab maps to a permission area; a tab shows only when the role can read that
 // area. `overview` is the shared home (any signed-in user); `users` is admin-only.
+// `hq` (read-only control plane) is visible to any signed-in user.
 const TAB_AREA: Record<Tab, string | null> = {
   overview: null,
+  hq: null,
   attendance: "attendance",
   reports: "reports",
   performance: "performance",
@@ -48,6 +52,7 @@ const TAB_AREA: Record<Tab, string | null> = {
 
 const allTabs: Segment[] = [
   { id: "overview", label: "Overview", icon: <Activity size={18} /> },
+  { id: "hq", label: "HQ", icon: <LayoutGrid size={18} /> },
   { id: "attendance", label: "Attendance", icon: <CalendarDays size={18} /> },
   { id: "reports", label: "Reports", icon: <BarChart3 size={18} /> },
   { id: "performance", label: "Performance", icon: <Gauge size={18} /> },
@@ -199,6 +204,7 @@ function AuthenticatedDashboard({ token, logout, me }: { token: string; logout: 
 
   const activeQueries = {
     overview: [overview],
+    hq: [],
     attendance: [today, history, weekly],
     reports: needsFallback ? [reports, fallbackReports] : [reports],
     performance: [performance, evaluations, feedback],
@@ -231,6 +237,7 @@ function AuthenticatedDashboard({ token, logout, me }: { token: string; logout: 
     body = (
       <>
         {active === "overview" && overview.data ? <OverviewView overview={overview.data} /> : null}
+        {active === "hq" ? <HQPage token={token} /> : null}
         {active === "attendance" && today.data && history.data && weekly.data ? (
           <AttendanceView
             token={token}

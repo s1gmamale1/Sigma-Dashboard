@@ -37,6 +37,43 @@ class Settings(BaseSettings):
     assistant_enabled: bool = False
     assistant_idle_timeout_s: float = 120.0
 
+    # --- HQ control plane (read-only MVP) ---
+    # Paths to upstream state files (env only: SIGMA_HQ_SIGMACONTROL_STATE /
+    # SIGMA_HQ_SIGMALINK_STATE). Unset/missing → that source reports unhealthy and
+    # contributes nothing; the mock source then keeps the UI populated with clearly
+    # labeled sample data until the real source path + schema are confirmed.
+    hq_sigmacontrol_state: str | None = None
+    hq_sigmalink_state: str | None = None
+    # Live SigmaLink External Control socket. Prefer SIGMA_HQ_SIGMALINK_SOCKET /
+    # SIGMA_HQ_SIGMALINK_TOKEN for the dashboard process; it also falls back to
+    # SIGMA_CONTROL_SOCKET / SIGMA_CONTROL_TOKEN for local operator runs.
+    hq_sigmalink_socket: str | None = None
+    hq_sigmalink_token: str | None = None
+    hq_sigmalink_label: str = "sigma-hq"
+    # Pointer (NOT a secret) to the hermes credentials file supplying the
+    # SigmaControl socket + token. Defaulting here activates live SigmaLink once
+    # this branch is deployed + the service restarts; the token is read at fetch
+    # time and never stored in Settings/logs/responses. Absent file → source
+    # degrades to mock-labeled (safe). Override via SIGMA_HQ_CONTROL_CREDS_PATH;
+    # set to "" to disable file resolution.
+    hq_control_creds_path: str | None = "~/.hermes/.credentials"
+    control_socket: str | None = None
+    control_token: str | None = None
+    # Include the mock source so the HQ tab is never empty pre-integration. Mock
+    # rows are visibly labeled in the UI; set SIGMA_HQ_USE_MOCK=false once live
+    # sources are wired and confirmed.
+    hq_use_mock: bool = True
+    hq_cache_ttl_seconds: int = 5
+    hq_heartbeat_stale_seconds: int = 120
+    # Control/write actions stay OFF by default — read-first, write-behind-signoff.
+    # When enabled, every action also requires a valid X-Sigma-Signoff JWT minted
+    # with hq_action_secret (operator-held; never stored elsewhere). Destructive
+    # actions (stop/close/kill) need the separate hq_allow_destructive flag too.
+    hq_allow_actions: bool = False
+    hq_allow_destructive: bool = False
+    hq_action_secret: str = ""
+    hq_action_signoff_ttl_s: int = 120
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_prefix="SIGMA_",

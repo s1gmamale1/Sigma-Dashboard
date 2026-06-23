@@ -90,6 +90,7 @@ OPENAPI_TAGS = [
     {"name": "Projects", "description": "Per-topic project condition — admin create/edit/archive/delete, task checklist, and log timeline."},
     {"name": "Viper ingest", "description": "Write API used by the Viper agent (authenticated with `X-Viper-Token`)."},
     {"name": "Google Sheets", "description": "Preview, import, and sync the HR attendance spreadsheet."},
+    {"name": "HQ", "description": "Read-only Sigma workforce control plane — projects, tasks, workers, sessions, swarms, heartbeats, and blockers aggregated from SigmaControl/SigmaLink."},
 ]
 
 
@@ -151,6 +152,12 @@ def create_app() -> FastAPI:
 
     from .assistant import router as assistant_router
     app.include_router(assistant_router)
+
+    from .hq.router import router as hq_router
+    app.include_router(hq_router)
+
+    from .hq.actions import router as hq_actions_router
+    app.include_router(hq_actions_router)
 
     dist = Path(settings.frontend_dist_path)
     if dist.exists():

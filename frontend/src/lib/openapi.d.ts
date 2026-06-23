@@ -545,7 +545,9 @@ export interface paths {
         /**
          * Import attendance from the HR sheet now
          * @description Pull the wide `Sigma Attendnace` tab into the dashboard immediately — the same job the
-         *     daily 19:00 Asia/Tashkent auto-sync runs. Returns the recorded sync run (status + summary).
+         *     auto-sync loop runs on its interval. Accepts either an admin/manager JWT or the Viper
+         *     ingest token (`X-Viper-Token`), so the ingest agent can refresh History right after it
+         *     writes the sheet. Returns the recorded sync run (status + summary).
          */
         post: operations["import_attendance_sheet_now_api_v1_attendance_import_sheet_post"];
         delete?: never;
@@ -700,6 +702,165 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/hq/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fleet overview
+         * @description Aggregated counts + per-source health for the whole fleet.
+         */
+        get: operations["hq_overview_api_v1_hq_overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hq/workers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Workers / agents */
+        get: operations["hq_workers_api_v1_hq_workers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hq/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Active sessions */
+        get: operations["hq_sessions_api_v1_hq_sessions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hq/swarms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Swarms */
+        get: operations["hq_swarms_api_v1_hq_swarms_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hq/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Projects */
+        get: operations["hq_projects_api_v1_hq_projects_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hq/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Tasks */
+        get: operations["hq_tasks_api_v1_hq_tasks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hq/blockers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Blockers */
+        get: operations["hq_blockers_api_v1_hq_blockers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hq/heartbeats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Heartbeats / staleness */
+        get: operations["hq_heartbeats_api_v1_hq_heartbeats_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hq/actions/{action}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Control action (disabled in MVP)
+         * @description Always refuses in the MVP. Order: feature-flag gate → sign-off gate → 501.
+         */
+        post: operations["hq_action_api_v1_hq_actions__action__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -708,6 +869,11 @@ export interface components {
         AbortRequest: {
             /** Run Id */
             run_id: string;
+            /**
+             * Session
+             * @default dashboard
+             */
+            session: string;
         };
         /** AttendanceCell */
         AttendanceCell: {
@@ -758,6 +924,32 @@ export interface components {
             /** Notes */
             notes: string | null;
         };
+        /** Blocker */
+        Blocker: {
+            /** Id */
+            id: string;
+            /** Source */
+            source: string;
+            /** Source Id */
+            source_id: string;
+            /** Title */
+            title: string;
+            /** @default medium */
+            severity: components["schemas"]["Severity"];
+            /** Entity Type */
+            entity_type?: string | null;
+            /** Entity Id */
+            entity_id?: string | null;
+            /** Owner */
+            owner?: string | null;
+            /**
+             * Status
+             * @default open
+             */
+            status: string;
+            /** Opened At */
+            opened_at?: string | null;
+        };
         /** ChangePasswordRequest */
         ChangePasswordRequest: {
             /** Current Password */
@@ -778,6 +970,11 @@ export interface components {
         ChatRequest: {
             /** Message */
             message: string;
+            /**
+             * Session
+             * @default dashboard
+             */
+            session: string;
         };
         /** DashboardOverview */
         DashboardOverview: {
@@ -899,6 +1096,15 @@ export interface components {
             };
             error?: components["schemas"]["ErrorBody"] | null;
         };
+        /** Envelope[Overview] */
+        Envelope_Overview_: {
+            data?: components["schemas"]["Overview"] | null;
+            /** Meta */
+            meta?: {
+                [key: string]: unknown;
+            };
+            error?: components["schemas"]["ErrorBody"] | null;
+        };
         /** Envelope[ProjectConditionOut] */
         Envelope_ProjectConditionOut_: {
             data?: components["schemas"]["ProjectConditionOut"] | null;
@@ -964,6 +1170,16 @@ export interface components {
             };
             error?: components["schemas"]["ErrorBody"] | null;
         };
+        /** Envelope[list[Blocker]] */
+        Envelope_list_Blocker__: {
+            /** Data */
+            data?: components["schemas"]["Blocker"][] | null;
+            /** Meta */
+            meta?: {
+                [key: string]: unknown;
+            };
+            error?: components["schemas"]["ErrorBody"] | null;
+        };
         /** Envelope[list[EvaluationOut]] */
         Envelope_list_EvaluationOut__: {
             /** Data */
@@ -994,6 +1210,16 @@ export interface components {
             };
             error?: components["schemas"]["ErrorBody"] | null;
         };
+        /** Envelope[list[Heartbeat]] */
+        Envelope_list_Heartbeat__: {
+            /** Data */
+            data?: components["schemas"]["Heartbeat"][] | null;
+            /** Meta */
+            meta?: {
+                [key: string]: unknown;
+            };
+            error?: components["schemas"]["ErrorBody"] | null;
+        };
         /** Envelope[list[PerformanceRow]] */
         Envelope_list_PerformanceRow__: {
             /** Data */
@@ -1014,10 +1240,50 @@ export interface components {
             };
             error?: components["schemas"]["ErrorBody"] | null;
         };
+        /** Envelope[list[Project]] */
+        Envelope_list_Project__: {
+            /** Data */
+            data?: components["schemas"]["Project"][] | null;
+            /** Meta */
+            meta?: {
+                [key: string]: unknown;
+            };
+            error?: components["schemas"]["ErrorBody"] | null;
+        };
         /** Envelope[list[ReportOut]] */
         Envelope_list_ReportOut__: {
             /** Data */
             data?: components["schemas"]["ReportOut"][] | null;
+            /** Meta */
+            meta?: {
+                [key: string]: unknown;
+            };
+            error?: components["schemas"]["ErrorBody"] | null;
+        };
+        /** Envelope[list[Session]] */
+        Envelope_list_Session__: {
+            /** Data */
+            data?: components["schemas"]["Session"][] | null;
+            /** Meta */
+            meta?: {
+                [key: string]: unknown;
+            };
+            error?: components["schemas"]["ErrorBody"] | null;
+        };
+        /** Envelope[list[Swarm]] */
+        Envelope_list_Swarm__: {
+            /** Data */
+            data?: components["schemas"]["Swarm"][] | null;
+            /** Meta */
+            meta?: {
+                [key: string]: unknown;
+            };
+            error?: components["schemas"]["ErrorBody"] | null;
+        };
+        /** Envelope[list[Task]] */
+        Envelope_list_Task__: {
+            /** Data */
+            data?: components["schemas"]["Task"][] | null;
             /** Meta */
             meta?: {
                 [key: string]: unknown;
@@ -1038,6 +1304,16 @@ export interface components {
         Envelope_list_WeeklySummaryRow__: {
             /** Data */
             data?: components["schemas"]["WeeklySummaryRow"][] | null;
+            /** Meta */
+            meta?: {
+                [key: string]: unknown;
+            };
+            error?: components["schemas"]["ErrorBody"] | null;
+        };
+        /** Envelope[list[Worker]] */
+        Envelope_list_Worker__: {
+            /** Data */
+            data?: components["schemas"]["Worker"][] | null;
             /** Meta */
             meta?: {
                 [key: string]: unknown;
@@ -1176,6 +1452,24 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** Heartbeat */
+        Heartbeat: {
+            /** Entity Type */
+            entity_type: string;
+            /** Entity Id */
+            entity_id: string;
+            /** Source */
+            source: string;
+            /** Ts */
+            ts?: string | null;
+            /** Staleness Seconds */
+            staleness_seconds?: number | null;
+            /**
+             * Healthy
+             * @default false
+             */
+            healthy: boolean;
+        };
         /**
          * IdResult
          * @description Minimal acknowledgement returned by write endpoints that only confirm an id.
@@ -1244,6 +1538,36 @@ export interface components {
             };
             /** Must Change Password */
             must_change_password: boolean;
+        };
+        /** Overview */
+        Overview: {
+            /** Workers Total */
+            workers_total: number;
+            /** Workers Running */
+            workers_running: number;
+            /** Workers Blocked */
+            workers_blocked: number;
+            /** Workers Offline */
+            workers_offline: number;
+            /** Sessions Active */
+            sessions_active: number;
+            /** Swarms Active */
+            swarms_active: number;
+            /** Tasks Open */
+            tasks_open: number;
+            /** Tasks Blocked */
+            tasks_blocked: number;
+            /** Blockers Open */
+            blockers_open: number;
+            /** Sources */
+            sources: {
+                [key: string]: boolean;
+            };
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
         };
         /** PerformanceRow */
         PerformanceRow: {
@@ -1329,6 +1653,27 @@ export interface components {
             active: boolean;
             /** Sort Order */
             sort_order: number;
+        };
+        /** Project */
+        Project: {
+            /** Id */
+            id: string;
+            /** Source */
+            source: string;
+            /** Source Id */
+            source_id: string;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            /** Owner */
+            owner?: string | null;
+            /** Status */
+            status?: string | null;
+            /** Repo Path */
+            repo_path?: string | null;
+            /** Updated At */
+            updated_at?: string | null;
         };
         /** ProjectConditionOut */
         ProjectConditionOut: {
@@ -1458,13 +1803,39 @@ export interface components {
              */
             must_change_password: boolean;
         };
+        /** Session */
+        Session: {
+            /** Id */
+            id: string;
+            /** Source */
+            source: string;
+            /** Source Id */
+            source_id: string;
+            /** Worker Id */
+            worker_id?: string | null;
+            /** Project Id */
+            project_id?: string | null;
+            /** Status */
+            status?: string | null;
+            /** Started At */
+            started_at?: string | null;
+            /** Last Activity */
+            last_activity?: string | null;
+            /** Transcript Ref */
+            transcript_ref?: string | null;
+        };
+        /**
+         * Severity
+         * @enum {string}
+         */
+        Severity: "low" | "medium" | "high" | "critical";
         /**
          * SheetSyncResult
          * @description Outcome of a Google Sheet attendance sync run.
          */
         SheetSyncResult: {
             /** Id */
-            id: number;
+            id?: number | null;
             /** Status */
             status: string;
             /** Started At */
@@ -1474,6 +1845,63 @@ export interface components {
             /** Error Message */
             error_message?: string | null;
         };
+        /** Swarm */
+        Swarm: {
+            /** Id */
+            id: string;
+            /** Source */
+            source: string;
+            /** Source Id */
+            source_id: string;
+            /** Name */
+            name: string;
+            /** Topology */
+            topology?: string | null;
+            /** Coordinator */
+            coordinator?: string | null;
+            /**
+             * Member Worker Ids
+             * @default []
+             */
+            member_worker_ids: string[];
+            /** Project Id */
+            project_id?: string | null;
+            /** Status */
+            status?: string | null;
+            /** Last Heartbeat */
+            last_heartbeat?: string | null;
+        };
+        /** Task */
+        Task: {
+            /** Id */
+            id: string;
+            /** Source */
+            source: string;
+            /** Source Id */
+            source_id: string;
+            /** Title */
+            title: string;
+            /** Project Id */
+            project_id?: string | null;
+            /** Assignee Worker Id */
+            assignee_worker_id?: string | null;
+            /** @default todo */
+            status: components["schemas"]["TaskStatus"];
+            /** Priority */
+            priority?: number | null;
+            /**
+             * Blocker Ids
+             * @default []
+             */
+            blocker_ids: string[];
+            /** Updated At */
+            updated_at?: string | null;
+        };
+        /**
+         * TaskStatus
+         * @enum {string}
+         */
+        TaskStatus: "todo" | "in_progress" | "review" | "done" | "blocked";
         /** UserCreate */
         UserCreate: {
             /**
@@ -1716,6 +2144,40 @@ export interface components {
             /** Absent */
             absent: number;
         };
+        /** Worker */
+        Worker: {
+            /** Id */
+            id: string;
+            /** Source */
+            source: string;
+            /** Source Id */
+            source_id: string;
+            /** Name */
+            name: string;
+            /** Kind */
+            kind: string;
+            /** Model */
+            model?: string | null;
+            /** Owner */
+            owner?: string | null;
+            /** @default offline */
+            status: components["schemas"]["WorkerStatus"];
+            /** Project Id */
+            project_id?: string | null;
+            /** Session Id */
+            session_id?: string | null;
+            /** Task Id */
+            task_id?: string | null;
+            /** Worktree Path */
+            worktree_path?: string | null;
+            /** Last Heartbeat */
+            last_heartbeat?: string | null;
+        };
+        /**
+         * WorkerStatus
+         * @enum {string}
+         */
+        WorkerStatus: "idle" | "running" | "blocked" | "offline";
     };
     responses: never;
     parameters: never;
@@ -2881,8 +3343,17 @@ export interface operations {
                     "application/json": components["schemas"]["Envelope_SheetSyncResult_"];
                 };
             };
-            /** @description Missing or invalid admin bearer token. */
+            /** @description Missing or invalid credentials (edit-capable admin bearer token or `X-Viper-Token`). */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope"];
+                };
+            };
+            /** @description Account is read-only (edit-capable JWT or `X-Viper-Token` required). */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3333,6 +3804,267 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
+            };
+        };
+    };
+    hq_overview_api_v1_hq_overview_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_Overview_"];
+                };
+            };
+            /** @description Missing or invalid admin bearer token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    hq_workers_api_v1_hq_workers_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_list_Worker__"];
+                };
+            };
+            /** @description Missing or invalid admin bearer token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    hq_sessions_api_v1_hq_sessions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_list_Session__"];
+                };
+            };
+            /** @description Missing or invalid admin bearer token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    hq_swarms_api_v1_hq_swarms_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_list_Swarm__"];
+                };
+            };
+            /** @description Missing or invalid admin bearer token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    hq_projects_api_v1_hq_projects_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_list_Project__"];
+                };
+            };
+            /** @description Missing or invalid admin bearer token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    hq_tasks_api_v1_hq_tasks_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_list_Task__"];
+                };
+            };
+            /** @description Missing or invalid admin bearer token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    hq_blockers_api_v1_hq_blockers_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_list_Blocker__"];
+                };
+            };
+            /** @description Missing or invalid admin bearer token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    hq_heartbeats_api_v1_hq_heartbeats_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Envelope_list_Heartbeat__"];
+                };
+            };
+            /** @description Missing or invalid admin bearer token. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    hq_action_api_v1_hq_actions__action__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                action: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": null;
+                };
+            };
+            /** @description Actions disabled, or sign-off header missing. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Action recognized but not implemented (read-only MVP). */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
