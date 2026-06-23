@@ -118,6 +118,20 @@ export interface HQOverview {
   generated_at: string;
 }
 
+export interface HQActionSpec {
+  name: string;
+  tool: string;
+  required: string[];
+  destructive: boolean;
+}
+export interface HQActionsStatus {
+  enabled: boolean;
+  destructive_enabled: boolean;
+  signoff_required: boolean;
+  signoff_configured: boolean;
+  actions: HQActionSpec[];
+}
+
 async function get<T>(path: string, token: string): Promise<HQResult<T>> {
   const { data, meta } = await apiFetchEnvelope<T, HQMeta>(`/api/v1/hq/${path}`, token);
   return { data, meta };
@@ -131,5 +145,6 @@ export const hqApi = {
   projects: (token: string) => get<HQProject[]>("projects", token),
   tasks: (token: string) => get<HQTask[]>("tasks", token),
   blockers: (token: string) => get<HQBlocker[]>("blockers", token),
-  heartbeats: (token: string) => get<HQHeartbeat[]>("heartbeats", token)
+  heartbeats: (token: string) => get<HQHeartbeat[]>("heartbeats", token),
+  actionsStatus: (token: string) => get<HQActionsStatus>("actions", token)
 };

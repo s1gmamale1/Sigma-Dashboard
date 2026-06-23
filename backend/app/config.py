@@ -65,10 +65,14 @@ class Settings(BaseSettings):
     hq_use_mock: bool = True
     hq_cache_ttl_seconds: int = 5
     hq_heartbeat_stale_seconds: int = 120
-    # Control/write actions stay OFF by default — read-first, write-later. Even when
-    # enabled they require an explicit X-Sigma-Signoff header and still return 501
-    # (nothing is wired in the MVP).
+    # Control/write actions stay OFF by default — read-first, write-behind-signoff.
+    # When enabled, every action also requires a valid X-Sigma-Signoff JWT minted
+    # with hq_action_secret (operator-held; never stored elsewhere). Destructive
+    # actions (stop/close/kill) need the separate hq_allow_destructive flag too.
     hq_allow_actions: bool = False
+    hq_allow_destructive: bool = False
+    hq_action_secret: str = ""
+    hq_action_signoff_ttl_s: int = 120
 
     model_config = SettingsConfigDict(
         env_file=".env",

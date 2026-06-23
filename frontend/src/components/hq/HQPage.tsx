@@ -32,6 +32,7 @@ export function HQPage({ token }: { token: string }) {
   const tasks = useQuery({ queryKey: ["hq", "tasks"], queryFn: () => hqApi.tasks(token), ...opts });
   const blockers = useQuery({ queryKey: ["hq", "blockers"], queryFn: () => hqApi.blockers(token), ...opts });
   const heartbeats = useQuery({ queryKey: ["hq", "heartbeats"], queryFn: () => hqApi.heartbeats(token), ...opts });
+  const actions = useQuery({ queryKey: ["hq", "actions"], queryFn: () => hqApi.actionsStatus(token), ...opts });
 
   const all = [overview, workers, sessions, swarms, projects, tasks, blockers, heartbeats];
   const errored = all.find((q) => q.error);
@@ -85,6 +86,23 @@ export function HQPage({ token }: { token: string }) {
               parseServerDate(generatedAt)
             )}
           </span>
+          {(() => {
+            const a = actions.data?.data;
+            const armed = !!a?.enabled && !!a?.signoff_configured;
+            return (
+              <span
+                className={`hq-control-pill hq-control-pill--${armed ? "armed" : "readonly"}`}
+                title={
+                  armed
+                    ? "Control armed — actions require an operator-minted X-Sigma-Signoff token" +
+                      (a?.destructive_enabled ? " (destructive enabled)" : " (non-destructive only)")
+                    : "Read-only — control actions disabled (403)"
+                }
+              >
+                {armed ? "control: armed · signed" : "control: read-only"}
+              </span>
+            );
+          })()}
         </div>
       </div>
 
