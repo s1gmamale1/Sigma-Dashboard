@@ -177,3 +177,110 @@ _(raw ideas land here; promote to ROADMAP.md once scoped into a phase)_
 
 - 🧹 **[low] squash duplicate commit** — `8b09537` + `0d7c1c6` both implement "adapter protocol + mock"
   (interruption artifact); squash at merge.
+
+---
+
+## 🔬 Test-coverage audit (2026-07-08)
+
+> Source: two-agent coverage sweep (backend pytest + frontend vitest), grep-verified.
+> Baseline: 126 backend tests / 20 frontend tests, all green; **no coverage tooling installed on
+> either side**. Top 5 (marked ⏳) being implemented same day; the rest parked here.
+> Strengths noted: `_import_lock` concurrency, composite-score engine, midnight-wraparound,
+> migrations all well-tested — gaps concentrate in integration surfaces + defensive error paths.
+
+### Tooling
+
+- 🧪 **[medium] no coverage measurement possible** — `pytest-cov` not in `.venv`, `@vitest/coverage-v8`
+  not in `frontend/package.json`. Install both + wire `--cov=backend/app` / `vitest --coverage` so future
+  audits get an objective baseline instead of manual grep. Effort: S.
+
+### Confirmed bugs (found while writing the ⏳ tests)
+
+- 🐞 **[high] naive check-in datetime crashes the whole dashboard import** — a designator-less
+  cell like `2026-06-01T18:10:00` (the natural sheet format) parses naive via
+  `google_sheets._parse_datetime:274-281`, then `calculate_attendance_status` subtracts the
+  **tz-aware** shift start (`services.py:107`, aware via `shift_start_datetime:85`) →
+  unhandled `TypeError` → `POST /google-sheet/import` 500s (route only catches `GoogleSheetError`).
+  Viper path (`+05:00` documented in schema) and HR-sheet importer (localizes to TZ) are both safe —
+  only this path is exposed. Fix: localize naive parsed datetimes to `settings.timezone` in
+  `_parse_datetime`. Pinned by strict-xfail `backend/tests/test_google_sheets.py::test_import_attendance_naive_checkin_datetime`
+  (XPASSes when fixed → promote to a plain test). Effort: S.
+- 🧹 **[low] `google_sheets._slug` doesn't collapse consecutive separators** — `"Class A / LMS"` →
+  `class-a---lms`; behavior now pinned in `test_google_sheets.py::test_parse_helpers_edge_cases`.
+  If ever "fixed", existing roster slugs derived from such names would shift — needs a migration
+  thought, not a drive-by. Effort: S (deliberately parked).
+- 🧹 **[low] dashboard importer accepts then ignores explicit `late`/`on_time`/`no_show` sheet status** —
+  `_import_attendance_rows:314` validates the status vocabulary but `calculate_attendance_status:99-104`
+  only honors `off_day`/`absent`; a "late" row with no check-in derives to the harsher `no_show` (−15 vs −3
+  in the new composite). Either honor the explicit status or reject it loudly. Pinned in
+  `test_google_sheets.py::test_import_attendance_explicit_late_without_checkin_derives_no_show`. Effort: S.
+
+### Backend — in progress (⏳ 2026-07-08)
+
+- ⏳ 🧪 **[high] `backend/app/google_sheets.py` — entire 396-line module untested** — header-alias mapping
+  (`_normalize_header:205`), multi-tab dispatch (`import_google_sheet_dashboard_data:135`), ambiguous/zero
+  spreadsheet-name branches (`resolve_spreadsheet_id:52`). Effort: M.
+- ⏳ 🧪 **[high] `backend/app/auth.py:82` — disabled user with valid JWT never tested** — the actual
+  "disable user" enforcement point; also real-expiry + wrong-secret tokens (`auth.py:76`). Effort: S.
+- ⏳ 🧪 **[high] `backend/app/services.py:349-417` — `sync_attendance_to_sheet` zero tests** — outbound
+  DB→sheet push; `except Exception` → failed `SheetSyncRun` branch unexercised. Effort: M.
+
+### Backend — parked
+
+- 🧪 **[high] core read routes zero route-tests** — `routes.py:234` `dashboard_overview` (composes 5 calls),
+  `:299` history (`end<start`→422 documented, never triggered), `:343` weekly-summary, `:388` chase-state
+  (404 + persistence). Effort: M.
+- 🧪 **[high] `ratelimit.py:18-28` sliding-window unit tests** — window eviction after 60s, per-key
+  isolation, thread-safety under the `Lock`; only defense on `/auth/login`. Effort: S.
+- 🧪 **[medium] `permissions.py` role×area matrix never asserted directly** — also: `has_permission` is
+  **dead code, never called anywhere**. Assert full matrix vs `DATA_AREAS` drift. Effort: S.
+- 🧪 **[medium] login with disabled account + correct password** — `routes.py:210` collapses 3 failure
+  legs into one 401; the `not user.active` leg has no test. Effort: S.
+- 🧪 **[medium] grace-minutes boundary at exactly 15/16 min** — `services.py:110` `<=` decides late (−3)
+  vs late_15 (−5); tests only cover 10 and 25. Effort: S.
+- 🧪 **[medium] `google-sheet/preview|import` route wiring** — `GoogleSheetError`→400, viewer-must-403 on
+  import (`require_edit`), `sample_rows` 1..25 bounds (`routes.py:849,874`). Effort: S.
+- 🧪 **[low] `routes.py:713` add-log-to-unknown-topic 404** — sibling delete endpoint has this test. Effort: S.
+- 🧪 **[low] `services.parse_project_tasks:179-200` malformed/non-list JSON guards** — only thing between a
+  corrupted `open_items_json` row and a 500 on every project-conditions GET. Effort: S.
+- 🧪 **[low] `attendance_sheet._record_failed_run:280` double-failure fallback** — monkeypatch `db.commit`
+  to raise; assert never-raises contract holds at its deepest layer. Effort: S.
+- 🧪 **[low] `routes.py:622` `include_archived=true`** — restore-visibility path never exercised. Effort: S.
+- 🧪 **[low] `services.require_known_person:52-65`** — display-name-drift update + empty-string skip. Effort: S.
+- 🧪 **[low] `main.py:96-113` lifespan gating** — auto-sync task created only for
+  `(sheet_sync_enabled AND creds_path)`; flip to `or` = crash loop nothing catches. Effort: S.
+
+### Frontend — in progress (⏳ 2026-07-08)
+
+- ⏳ 🧪 **[high] `frontend/src/lib/dates.ts:52` `parseServerDate` untested** — the fix for the shipped
+  naive-UTC bug; a "simplify to `new Date`" refactor regresses silently (UTC+5 shift). Effort: S.
+- ⏳ 🧪 **[high] `frontend/src/lib/api.ts:66-82` `apiFetchEnvelope` error branches** — non-OK status,
+  200-with-error envelope, non-JSON body; every API call funnels through it. Effort: S.
+
+### Frontend — parked
+
+- 🧪 **[high] `App.tsx:84-119` permission tabs + expired-token logout** — viewer must never see Users tab;
+  failed `/me` must clear token + bounce to login (else infinite spinner); `needsFallback` date substitution.
+  Needs first `QueryClientProvider` test wrapper — build `test/renderWithQueryClient.tsx` helper. Effort: M.
+- 🧪 **[high] `AttendanceView.tsx:23-42` optimistic chase-state rollback** — the app's only optimistic
+  mutation; failed PATCH must roll back or UI silently desyncs from backend. Effort: M.
+- 🧪 **[medium] `lib/api.ts:191-229` `streamAssistant` SSE parsing** — frame split across two `read()`
+  chunks, malformed-frame silent catch, non-OK initial response. Effort: S.
+- 🧪 **[medium] `LoginPanel.tsx:14-26` failure path** — error message shown + button re-enabled via
+  `finally`; regression = permanent lockout with no feedback. Effort: S.
+- 🧪 **[medium] `UsersView.tsx:130-196` destructive guards** — self-delete `disabled={isSelf}` +
+  `window.confirm` gate. Effort: S.
+- 🧪 **[medium] `AssistantDock.tsx:184-231` send/stop** — `/compress`→`/compact` alias, empty-message guard,
+  `stop()` aborts + `abortAssistant(runId)`; existing test only covers markdown rendering. Effort: M.
+- 🧪 **[medium] `ProjectEditor.tsx:79-201` unsaved-changes confirm + archive toggle direction**. Effort: S.
+- 🧪 **[low] `lib/dates.ts:8-34` `addDays`/`weekStart`/`monthRange` boundaries** — month/year rollover,
+  Sunday→preceding-Monday, February range. Effort: S.
+- 🧪 **[low] `ChangePasswordPanel.tsx:20-30` client validation** — length<6 + mismatch guards on the
+  forced-change path every new user hits. Effort: S.
+- 🧪 **[low] `PerformanceView.tsx:71-80` evaluation tie-break + rank stability under "Worst first"**. Effort: S.
+- 🧪 **[low] `Shell.tsx:60-70` date-stepper wiring** — prev/next/today → `onDate` args. Effort: S.
+- 🧪 **[low] `SheetsView.tsx:58-79` preview-error + import-result states**. Effort: S.
+- 🧪 **[low] `Sparkline.tsx:29-45` NaN/empty/single-point clamping** — NaN in SVG path renders nothing,
+  throws nothing. Effort: S.
+- 🧪 **[low] `ProjectConditionView.tsx:15-25` `relativeTime` buckets + null/NaN guards**. Effort: S.
+- 🧪 **[low] `Avatar.tsx` empty-name → `"?"` not crash; `StatusPill.tsx:23-29` unknown-enum fallback**. Effort: S.

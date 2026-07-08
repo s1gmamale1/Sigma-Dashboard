@@ -151,3 +151,68 @@ def test_require_edit_or_viper_accepts_edit_user_and_rejects_viewer() -> None:
     with pytest.raises(HTTPException) as exc:
         require_edit_or_viper(None, _bearer(viewer_token), settings, viewer_session)
     assert exc.value.status_code == 403
+
+
+def test_disabled_user_with_valid_token_is_rejected() -> None:
+    """A still-unexpired JWT for a since-disabled account must 403 on every request —
+    this per-request DB check is the actual enforcement point for 'disable user'."""
+    from sqlalchemy import select
+
+    from backend.app.auth import create_access_token, get_current_user
+    from backend.app.models import User
+
+    settings = make_settings()
+    session = _session_with_user("admin")
+    token, _ = create_access_token(settings, "someone", "admin")
+
+    # Token is valid while the account is active…
+    assert get_current_user(_bearer(token), settings, session).username == "someone"
+
+    # …and the very same token is rejected the moment the account is disabled.
+    user = session.scalar(select(User).where(User.username == "someone"))
+    user.active = False
+    session.commit()
+    with pytest.raises(HTTPException) as exc:
+        get_current_user(_bearer(token), settings, session)
+    assert exc.value.status_code == 403
+    assert "disabled" in str(exc.value.detail)
+
+
+def test_expired_token_is_rejected() -> None:
+    from datetime import datetime, timedelta, timezone
+
+    from jose import jwt
+
+    from backend.app.auth import get_current_user
+
+    settings = make_settings()
+    session = _session_with_user("admin")
+    expired = jwt.encode(
+        {
+            "sub": "someone",
+            "role": "admin",
+            "exp": datetime.now(timezone.utc) - timedelta(minutes=1),
+        },
+        settings.jwt_secret,
+        algorithm=settings.jwt_algorithm,
+    )
+    with pytest.raises(HTTPException) as exc:
+        get_current_user(_bearer(expired), settings, session)
+    assert exc.value.status_code == 401
+
+
+def test_token_signed_with_wrong_secret_is_rejected() -> None:
+    from jose import jwt
+
+    from backend.app.auth import get_current_user
+
+    settings = make_settings()
+    session = _session_with_user("admin")
+    forged = jwt.encode(
+        {"sub": "someone", "role": "admin"},
+        "attacker-controlled-secret-000000",
+        algorithm=settings.jwt_algorithm,
+    )
+    with pytest.raises(HTTPException) as exc:
+        get_current_user(_bearer(forged), settings, session)
+    assert exc.value.status_code == 401
