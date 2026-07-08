@@ -14,3 +14,5 @@ coverage/
 credentials/
 logs/*
 !logs/.gitkeep
+.coverage
+.coverage.*

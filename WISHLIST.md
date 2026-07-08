@@ -184,7 +184,7 @@ _(raw ideas land here; promote to ROADMAP.md once scoped into a phase)_
 
 > Source: two-agent coverage sweep (backend pytest + frontend vitest), grep-verified.
 > Baseline: 126 backend tests / 20 frontend tests, all green; **no coverage tooling installed on
-> either side**. Top 5 (marked ⏳) being implemented same day; the rest parked here.
+> either side**. Top 5 (marked ⏳) **shipped via PR #9 (squash `2942ca5`, 2026-07-08)**; the rest parked here.
 > Strengths noted: `_import_lock` concurrency, composite-score engine, midnight-wraparound,
 > migrations all well-tested — gaps concentrate in integration surfaces + defensive error paths.
 
@@ -215,7 +215,7 @@ _(raw ideas land here; promote to ROADMAP.md once scoped into a phase)_
   in the new composite). Either honor the explicit status or reject it loudly. Pinned in
   `test_google_sheets.py::test_import_attendance_explicit_late_without_checkin_derives_no_show`. Effort: S.
 
-### Backend — in progress (⏳ 2026-07-08)
+### Backend — shipped in PR #9 (⏳ → ✅ 2026-07-08)
 
 - ⏳ 🧪 **[high] `backend/app/google_sheets.py` — entire 396-line module untested** — header-alias mapping
   (`_normalize_header:205`), multi-tab dispatch (`import_google_sheet_dashboard_data:135`), ambiguous/zero
@@ -250,7 +250,7 @@ _(raw ideas land here; promote to ROADMAP.md once scoped into a phase)_
 - 🧪 **[low] `main.py:96-113` lifespan gating** — auto-sync task created only for
   `(sheet_sync_enabled AND creds_path)`; flip to `or` = crash loop nothing catches. Effort: S.
 
-### Frontend — in progress (⏳ 2026-07-08)
+### Frontend — shipped in PR #9 (⏳ → ✅ 2026-07-08)
 
 - ⏳ 🧪 **[high] `frontend/src/lib/dates.ts:52` `parseServerDate` untested** — the fix for the shipped
   naive-UTC bug; a "simplify to `new Date`" refactor regresses silently (UTC+5 shift). Effort: S.
